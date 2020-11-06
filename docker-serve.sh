@@ -1,8 +1,8 @@
 #!/bin/sh
 set -ex
-docker run --rm -it \
+docker start -ia jekyll || docker run -it \
+    --name jekyll \
     --volume=$PWD:/srv/jekyll \
-    --volume=$PWD/vendor/bundle:/usr/local/bundle \
     --env JEKYLL_ENV=production \
     -p 4000:4000 \
     jekyll/jekyll \
