@@ -33,6 +33,9 @@ plugins:
   - jekyll-feed
   - jekyll-figure
 
+disqus:
+  shortname: "blog-mcejp-com"
+
 # Do not interfere with MathJax 3
 kramdown:
   math_engine: null
