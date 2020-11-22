@@ -144,6 +144,8 @@ for (int Y = Y_a; Y < Y_b; Y++) {
 
 Now, what about the right edge of the triangle? The answer is actually hidden in what was said at the beginning. Between adjacent faces, there shall be neither any gaps, nor overlap. That means that the right edge of face A has to be calculated in exactly the same way as the left edge of face B, but shared pixels ought to be covered by only one of the faces. The consequence is that we scan the right edge in the same way as the left edge, and we only fill pixels where $X < X_{right}$.
 
+(Note that this alone doesn't guarantee pixel-perfect rendering of adjancent faces. We must also ensure that the geometry doesn't contain any [T-junctions](https://wiki.ldraw.org/wiki/T-Junction) and that the shared vertices are *bitwise-equal*. The latter requirement matters for numeric format that permit multiple encodings of the same numeric value, such as de-normalized IEEE 754 floats.)
+
 # Going Negative
 
 We have now solved the case of $$x_b \ge x_a$$. How do we deal with the opposite?
