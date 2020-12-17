@@ -10,7 +10,7 @@ One way to rasterize triangle-based geometry is to use the _edge walk_ method (s
 ![flat-bottom triangle](../../../images/bresenham/flatbottomtriangle.png)
 {% endfigure %}
 
-I will not repeat the basic ideas (sorting vertices by Y, decomposition into a flat bottom triangle and a flat top triangle) -- a good explanation can be found, for example, in the link above. In this post I want to focus solely on how to correctly use Bresenham's line drawing algorithm to walk the triangle edges.
+I will not repeat the basic ideas (sorting vertices by Y, decomposition into a flat bottom triangle and a flat top triangle) -- a good explanation can be found, for example, [on Sunshine's website](http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html). In this post I want to focus solely on how to correctly use Bresenham's line drawing algorithm to walk the triangle edges.
 
 # Coverage rules!
 
@@ -18,7 +18,7 @@ Drawing one triangle is an easy case, and off-by-one errors won't be noticed so 
 
 Once having more complex geometry, though, coverage rules become important to ensure that there will be no gaps in the rasterized geometry. It is desirable to also avoid the opposite (one pixel being covered by two adjacent faces), because it is slightly wasteful, and can lead to ugly flickering artifacts as the camera moves around the scene.
 
-For Microsoft's Direct3D 11 graphics API, there is [excellent documentation](https://docs.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-rasterizer-stage-rules) of the conventions that it follows. We shall assume that conventions adopted by leading rendering API for desktop gaming are sound enough for our purpose.
+For Microsoft's Direct3D 11 graphics API, there is [excellent documentation](https://docs.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-rasterizer-stage-rules) of the conventions that it follows, quoted below. We shall assume that conventions adopted by an industry-embraced rendering API for desktop gaming are sound enough for our purpose.
 
 {% figure [caption:"Direct3D coverage rules"] %}
 ![Direct3D coverage rules](../../../images/bresenham/d3d10-rasterrulestriangle.png)
@@ -33,7 +33,7 @@ For Microsoft's Direct3D 11 graphics API, there is [excellent documentation](htt
 >
 > The top-left rule ensures that adjacent triangles are drawn once.
 
-Let us now formulate the task more exactly:
+Let us now formulate the task more specifically:
 
 - triangle given by integer coordinates $(X_1, Y_1)$, $(X_2, Y_2)$, $(X_3, Y_3)$ in screen space
     - no subpixel precision, sorry (maybe next time?)
@@ -42,13 +42,13 @@ Let us now formulate the task more exactly:
     - for each pixel row $Y$, determine $X_{start}, X_{end}$, to fill pixels satisfying $X_{start} \le X \lt X_{end}$ (note the assymmetry here) compliant with _Triangle Rasterization Rules (Without Multisampling)_ of Direct3D 10/11
 - no floating-point operations and no integer division
 
-Note: I use capital letters to denote integer coordinates, e.g. those lying in the top-left corner of a pixel. Lowercase letters stand general coordinates which might lie in the pixel's top-left corner, in its center, or anywhere else.
+Note: I use capital letters to denote integer coordinates, e.g. those lying in the top-left corner of a pixel. Lowercase letters represent general coordinates which might lie in the pixel's top-left corner, in its center, or anywhere else.
 
 # Line discretization
 
-Based on the coverage rules, we can now form a mathematic description of the problem, and re-derive our own little Bresenham-like algorithm.
+Based on the coverage rules, we can now form a mathematic description of the problem, and re-derive our own Bresenham-like algorithm.
 
-An important realization here is that, although we specify vertex coordinates at pixel corners, the sampling points are in pixel centers. If we describe the triangle edges with their _explicit equations_ (expressing $x$ as a function of $y$), the coverage rule can then be reformulated as follows:
+An important realization here is that, although we specify vertex coordinates at pixel _corners_, the sampling points are in pixel _centers_. If we describe the triangle edges with their _explicit equations_ (expressing $x$ as a function of $y$), the coverage rule can be re-formulated as follows:
 
 - with respect to the left edge of the triangle, the center of pixel $(X, Y)$ is inside the triangle if it lies on, or to the right of the edge at $$Y + 0.5$$, e.g. if $$X + 0.5 >= x_{left}(Y + 0.5)$$.
 - with respect to the right edge of the triangle, the center of pixel $(X, Y)$ is inside the triangle if it lies to the left of the edge at $$Y + 0.5$$, e.g. $$X + 0.5 < x_{right}(Y + 0.5)$$.
@@ -59,7 +59,7 @@ $$
 x(y) = x_a + \frac{y - y_a}{y_b - y_a}(x_b - x_a)
 $$
 
-(This function exists as long as the line is not horizontal, e.g. $y_a \ne y_b$, but when processing the edges of flat-top and flat-bottom triangles, we will not encounter any horizontal lines except in degenerate cases.)
+(This function exists as long as the line is not horizontal, e.g. $y_a \ne y_b$, and when processing the edges of flat-top and flat-bottom triangles, we will not encounter any horizontal lines except in degenerate cases.)
 
 This representation gives us a lot of power; given the bounding line in screen space and an $$y$$-cordinate, we can for example find the left-most filled pixel ($X_{left}$) by determining the smallest integer $X_{left}$ that satisfies the inequality
 
@@ -71,7 +71,7 @@ $$
 
 # An efficient algorithm
 
-Of course, as said above, we don't want no stinkin' division (nor fractional numbers), so the initial equation will need some work. First we will discuss the left bounding line segment and assume that $$x_b \ge x_a$$ and $$y_b > y_a$$, e.g. we are going left to right, top to bottom. Let's start by un-generalizing some of the variables: we snap the line vertices to pixel corners, and we test at pixel-center y-coordinates.
+Of course, as said above, we don't want no stinkin' division (nor fractional numbers), so the initial equation will need some rework. First we will discuss the left bounding line segment and assume that $$x_b \ge x_a$$ and $$y_b > y_a$$, e.g. we are going left to right, top to bottom. Let's start by un-generalizing some of the variables: we snap the line vertices to pixel corners, and we test at pixel-center y-coordinates.
 
 $$
 X_{left} + 0.5 \ge X_a + \frac{(Y + 0.5) - Y_a}{Y_b - Y_a}(X_b - X_a).
@@ -144,7 +144,7 @@ for (int Y = Y_a; Y < Y_b; Y++) {
 
 Now, what about the right edge of the triangle? The answer is actually hidden in what was said at the beginning. Between adjacent faces, there shall be neither any gaps, nor overlap. That means that the right edge of face A has to be calculated in exactly the same way as the left edge of face B, but shared pixels ought to be covered by only one of the faces. The consequence is that we scan the right edge in the same way as the left edge, and we only fill pixels where $X < X_{right}$.
 
-(Note that this alone doesn't guarantee pixel-perfect rendering of adjancent faces. We must also ensure that the geometry doesn't contain any [T-junctions](https://wiki.ldraw.org/wiki/T-Junction) and that the shared vertices are *bitwise-equal*. The latter requirement matters for numeric format that permit multiple encodings of the same numeric value, such as de-normalized IEEE 754 floats.)
+(Note that this alone doesn't guarantee pixel-perfect rendering of adjancent faces. We must also ensure that the geometry doesn't contain any [T-junctions](https://wiki.ldraw.org/wiki/T-Junction) and that the vertices of adjacent faces are *bitwise-equal*. The latter requirement matters for numeric format that permit multiple encodings of the same numeric value, such as de-normalized IEEE 754 floats.)
 
 # Going Negative
 
@@ -181,7 +181,7 @@ for (int Y = Y_a; Y < Y_b; Y++) {
 
 # But does it work?
 
-What could be better proof than a screenshot in action?!
+Well, what could be better proof than a screenshot of the algorithm in action?!
 
 {% figure [caption:"Triangle rasterization according to the algorithm described herein. Textures and some geometry are courtesy of TES: Daggerfall"] %}
 ![Screenshot](../../../images/bresenham/not-daggerfall.png)
