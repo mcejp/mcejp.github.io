@@ -58,11 +58,11 @@ hr {
 
 <!-- <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 32 32" xml:space="preserve" height="1.5em"><style type="text/css">.st0{fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;}</style><path d="M29,15c0.6,0,1-0.4,1-1s-0.4-1-1-1h-3v-2h3c0.6,0,1-0.4,1-1s-0.4-1-1-1h-3c0-1.7-1.3-3-3-3V3c0-0.6-0.4-1-1-1s-1,0.4-1,1v3 h-2V3c0-0.6-0.4-1-1-1s-1,0.4-1,1v3h-2V3c0-0.6-0.4-1-1-1s-1,0.4-1,1v3h-2V3c0-0.6-0.4-1-1-1S9,2.4,9,3v3C7.3,6,6,7.3,6,9H3 c-0.6,0-1,0.4-1,1s0.4,1,1,1h3v2H3c-0.6,0-1,0.4-1,1s0.4,1,1,1h3v2H3c-0.6,0-1,0.4-1,1s0.4,1,1,1h3v2H3c-0.6,0-1,0.4-1,1s0.4,1,1,1 h3c0,1.7,1.3,3,3,3v3c0,0.6,0.4,1,1,1s1-0.4,1-1v-3h2v3c0,0.6,0.4,1,1,1s1-0.4,1-1v-3h2v3c0,0.6,0.4,1,1,1s1-0.4,1-1v-3h2v3 c0,0.6,0.4,1,1,1s1-0.4,1-1v-3c1.7,0,3-1.3,3-3h3c0.6,0,1-0.4,1-1s-0.4-1-1-1h-3v-2h3c0.6,0,1-0.4,1-1s-0.4-1-1-1h-3v-2H29z M22,19 c0,1.7-1.3,3-3,3h-6c-1.7,0-3-1.3-3-3v-6c0-1.7,1.3-3,3-3h6c1.7,0,3,1.3,3,3V19z"/></svg> -->
 
-Mikrokontrolér/kit|Název firmware|Zapojení
--|-|-
-STM32F042F6 (samostatně)|`fw-STM32F042F6-USB_CDC`|[zde](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
-[NUCLEO-F042K6](https://www.st.com/en/evaluation-tools/nucleo-f042k6.html)|`fw-STM32F042K6-VCP`|[zde](virtual-counter-pinouts.html#nucleo-f042k6)
-[NUCLEO-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)|`fw-STM32F303RE`|[zde](virtual-counter-pinouts.html#nucleo-f303re)
+Mikrokontrolér/kit|Název firmware|Zdroj časové základny|Zapojení
+-|-|-|-
+STM32F042F6 (samostatně)|<code><nobr>fw-STM32F042F6-USB_CDC</nobr></code>|interní oscilátor HSI, dolaďován podle USB|[zde](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
+[NUCLEO-F042K6](https://www.st.com/en/evaluation-tools/nucleo-f042k6.html)|<code><nobr>fw-STM32F042K6-VCP</nobr></code>|interní oscilátor HSI nebo 8MHz krystal připojený mezi piny D7 a D8 (detekován při zapnutí)|[zde](virtual-counter-pinouts.html#nucleo-f042k6)
+[NUCLEO-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)|<code><nobr>fw-STM32F303RE</nobr></code>|krystal integrovaný na kitu|[zde](virtual-counter-pinouts.html#nucleo-f303re)
 
 Firmware je k dispozici ve formátech BIN, HEX a ELF.
 

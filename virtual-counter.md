@@ -56,11 +56,11 @@ hr {
 
 ## Supported hardware platforms
 
-Microcontroller/kit|Firmware filename|Wiring
+Microcontroller/kit|Firmware filename|Time base source|Wiring
 -|-|-
-STM32F042F6 (stand-alone)|`fw-STM32F042F6-USB_CDC`|[here](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
-[NUCLEO-F042K6](https://www.st.com/en/evaluation-tools/nucleo-f042k6.html)|`fw-STM32F042K6-VCP`|[here](virtual-counter-pinouts.html#nucleo-f042k6)
-[NUCLEO-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)|`fw-STM32F303RE`|[here](virtual-counter-pinouts.html#nucleo-f303re)
+STM32F042F6 (stand-alone)|<code><nobr>fw-STM32F042F6-USB_CDC</nobr></code>|internal HSI oscillator, continuously tuned from USB timing|[here](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
+[NUCLEO-F042K6](https://www.st.com/en/evaluation-tools/nucleo-f042k6.html)|<code><nobr>fw-STM32F042K6-VCP</nobr></code>|internal HSI oscillator or 8MHz crystal between pins D7, D8 (detected at start-up)|[here](virtual-counter-pinouts.html#nucleo-f042k6)
+[NUCLEO-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)|<code><nobr>fw-STM32F303RE</nobr></code>|on-board crystal|[here](virtual-counter-pinouts.html#nucleo-f303re)
 
 The firmware is supplied in BIN, HEX and ELF formats.
 
