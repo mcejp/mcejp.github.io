@@ -60,7 +60,7 @@ hr {
 
 Mikrokontrolér/kit|Název firmware|Zdroj časové základny|Zapojení
 -|-|-|-
-STM32F042F6 (samostatně)|<code><nobr>fw-STM32F042F6-USB_CDC</nobr></code>|interní oscilátor HSI, dolaďován podle USB|[zde](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
+STM32F042F6 (samostatně)|<code><nobr>fw-STM32F042F6-USB_CDC</nobr></code>|interní oscilátor HSI, dolaďován podle USB, nebo 8MHz krystal připojený mezi piny 2 a 3 (detekován při zapnutí)|[zde](virtual-counter-pinouts.html#stm32f042f6-stand-alone)
 [NUCLEO-F042K6](https://www.st.com/en/evaluation-tools/nucleo-f042k6.html)|<code><nobr>fw-STM32F042K6-VCP</nobr></code>|interní oscilátor HSI nebo 8MHz krystal připojený mezi piny D7 a D8 (detekován při zapnutí)|[zde](virtual-counter-pinouts.html#nucleo-f042k6)
 [NUCLEO-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)|<code><nobr>fw-STM32F303RE</nobr></code>|krystal integrovaný na kitu|[zde](virtual-counter-pinouts.html#nucleo-f303re)
 
