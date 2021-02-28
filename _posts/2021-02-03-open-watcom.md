@@ -57,3 +57,7 @@ int main(void) {
 ```
 
 For portability, though, it might be better to include `<dos.h>` and use the wrappers found there (such as `_dos_write`), which should still be a lighter abstraction than `<stdio.h>`.
+
+---
+
+UPDATE: [This post](https://ptspts.blogspot.com/2020/04/openwatcom-exeprog.html) contains many more useful examples and links related to OW2 on Linux.
