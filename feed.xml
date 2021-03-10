@@ -1,0 +1,890 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.0.0">Jekyll</generator><link href="https://mcejp.github.io/feed.xml" rel="self" type="application/atom+xml" /><link href="https://mcejp.github.io/" rel="alternate" type="text/html" /><updated>2021-03-10T20:27:06+00:00</updated><id>https://mcejp.github.io/feed.xml</id><title type="html">Reinventing The Wheel</title><subtitle>...for fun and profit</subtitle><entry><title type="html">Video: Rendering with S-buffers (span buffers)</title><link href="https://mcejp.github.io/2021/02/17/s-buffers.html" rel="alternate" type="text/html" title="Video: Rendering with S-buffers (span buffers)" /><published>2021-02-17T00:00:00+00:00</published><updated>2021-02-17T00:00:00+00:00</updated><id>https://mcejp.github.io/2021/02/17/s-buffers</id><content type="html" xml:base="https://mcejp.github.io/2021/02/17/s-buffers.html">&lt;p&gt;
+&lt;iframe width=&quot;100%&quot; height=&quot;400&quot; src=&quot;https://www.youtube.com/embed/KUXXo_OP_eU&quot; frameborder=&quot;0&quot; allow=&quot;accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture&quot; allowfullscreen=&quot;&quot;&gt;&lt;/iframe&gt;
+&lt;/p&gt;
+
+&lt;p&gt;This video demonstrates, in slow motion, the process of rendering a 3D scene using so-called S-buffers. Compared to the now-ubiquitous depth buffering, this technique requires much less memory (and memory bandwidth) when rendering low resolution, low polygon count scenes.&lt;/p&gt;
+
+&lt;p&gt;The rendering consists of two steps. In the first phase, an array of empty linked lists is initialized (one list per scan line). The polygons to be displayed are then projected into screen space, clipped to the viewport, and decomposed into tuples of &lt;span class=&quot;kdmath&quot;&gt;$(Y, X_{start}, X_{end})$&lt;/span&gt;. These are inserted into the linked lists, at position &lt;span class=&quot;kdmath&quot;&gt;$Y$&lt;/span&gt; in the array and ordered by &lt;span class=&quot;kdmath&quot;&gt;$X_{start}$&lt;/span&gt; within each list. These spans are clipped against each other, based on relative depth of end-points, to ensure no overlap within the S-buffers. (Intersecting faces are not handled well in my implementation, and will lead to visual glitches.)&lt;/p&gt;
+
+&lt;p&gt;At the end of the first phase, objects of infinite depth (such as a sky box) may used to fill gaps in the S-buffers.&lt;/p&gt;
+
+&lt;p&gt;Contrary to what the video shows, by this point, nothing would have been drawn to the screen yet.&lt;/p&gt;
+
+&lt;p&gt;Enter phase two: the viewport is scanned line by line, and the spans for each line are rasterized, in order, into the frame buffer. If any gaps remain, they are filled with a background color. Because the spans cannot overlap, the scene is drawn with zero over-draw.&lt;/p&gt;
+
+&lt;p&gt;The processing time of the first phase depends on the viewport resolution, as well as complexity of the geometry. It is beneficial to draw the closest objects first, to avoid having to replace spans already inserted. (this issue is demonstrated at the beginning of Scene #2, where many small objects are drawn, only to be completely obscured later)&lt;/p&gt;
+
+&lt;p&gt;The second phase consists mainly of pushing pixels, so viewport resolution will be a driving factor. In addition, there is a non-trivial cost per span drawn, because properties of the original face must be fetched to set up texture coordinates or any other interpolated attibutes.&lt;/p&gt;
+
+&lt;p&gt;Transparent surfaces must be drawn at the very end, back-to-front, with depth-based clipping against spans in the S-buffers. This makes them rather inefficient and prone to over-draw.&lt;/p&gt;
+
+&lt;p&gt;You might notice that occasionaly there are pixel gaps between adjacent faces. This is not due to any fault of the algorithm or the renderer implementation, but due to &lt;a href=&quot;https://wiki.ldraw.org/wiki/T-Junction&quot;&gt;T-junctions&lt;/a&gt; in my geometry, which must be fixed in the source data, or by face splitting as a preprocessing step.&lt;/p&gt;
+
+&lt;p&gt;The video was made possible, in part, by the &lt;a href=&quot;https://github.com/higan-emu/libco&quot;&gt;libco&lt;/a&gt; library, which allowed me to insert yield statements deep in the renderer loops without much hassle. Credit is also due to the ever-amazing &lt;a href=&quot;https://ffmpeg.org/&quot;&gt;ffmpeg&lt;/a&gt;.&lt;/p&gt;</content><author><name></name></author><summary type="html"></summary></entry><entry><title type="html">Gallery: portal-based space partitioning</title><link href="https://mcejp.github.io/2021/02/14/bsp2d.html" rel="alternate" type="text/html" title="Gallery: portal-based space partitioning" /><published>2021-02-14T00:00:00+00:00</published><updated>2021-02-14T00:00:00+00:00</updated><id>https://mcejp.github.io/2021/02/14/bsp2d</id><content type="html" xml:base="https://mcejp.github.io/2021/02/14/bsp2d.html">&lt;p&gt;Presented here without commentary, but feel free to get in touch if this interests you.&lt;/p&gt;
+
+&lt;h4 id=&quot;input-data-convex-brushes-thin-area-portals-spawn-coordinates&quot;&gt;Input data: convex &lt;a href=&quot;https://developer.valvesoftware.com/wiki/Brush&quot;&gt;brushes&lt;/a&gt;, thin &lt;a href=&quot;https://developer.valvesoftware.com/wiki/Areaportal&quot;&gt;area portals&lt;/a&gt;, spawn coordinates&lt;/h4&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/bsp2d/initial.svg&quot; alt=&quot;Input data&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-1-break-map-up-into-non-overlapping-convex-brushes-and-visleaves&quot;&gt;Step 1: break map up into non-overlapping convex brushes and &lt;a href=&quot;https://developer.valvesoftware.com/wiki/Visleaf&quot;&gt;visleaves&lt;/a&gt;&lt;/h4&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/bsp2d/post-punch-in.svg&quot; alt=&quot;Pass 1&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-2-add-extra-vertices-to-remove-t-junctions&quot;&gt;Step 2: add extra vertices to remove T-junctions&lt;/h4&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/bsp2d/post-normalize.svg&quot; alt=&quot;Pass 2&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-3-flood-fill-reachable-areas--visleaves&quot;&gt;Step 3: flood fill reachable areas &amp;amp; visleaves&lt;/h4&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/bsp2d/post-flood-fill.svg&quot; alt=&quot;Pass 3&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-4-assign-visible-geometry-to-areas-delimited-by-portals-throw-away-the-rest&quot;&gt;Step 4: assign visible geometry to areas delimited by portals, throw away the rest&lt;/h4&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/bsp2d/post-visibility.svg&quot; alt=&quot;Pass 4&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><summary type="html">Presented here without commentary, but feel free to get in touch if this interests you.</summary></entry><entry><title type="html">Building an Open Watcom Linux-to-DOS cross-compiler</title><link href="https://mcejp.github.io/2021/02/03/open-watcom.html" rel="alternate" type="text/html" title="Building an Open Watcom Linux-to-DOS cross-compiler" /><published>2021-02-03T00:00:00+00:00</published><updated>2021-02-03T00:00:00+00:00</updated><id>https://mcejp.github.io/2021/02/03/open-watcom</id><content type="html" xml:base="https://mcejp.github.io/2021/02/03/open-watcom.html">&lt;p&gt;Nowadays, &lt;a href=&quot;https://github.com/open-watcom/open-watcom-v2&quot;&gt;Open Watcom v2&lt;/a&gt; seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux.&lt;/p&gt;
+
+&lt;p&gt;Although there is an official &lt;a href=&quot;https://github.com/open-watcom/open-watcom-v2/wiki/Build&quot;&gt;Wiki&lt;/a&gt; about building the toolchain, to me it reads more like a reference for those already in the know (and it’s a lot of words anyway!)&lt;/p&gt;
+
+&lt;p&gt;Below I reproduce just the steps I had to take to get a fully working toolchain.&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;git clone git@github.com:open-watcom/open-watcom-v2.git&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;cd open-watcom-v2&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;in &lt;em&gt;setvars.sh&lt;/em&gt;, I uncommented &lt;code class=&quot;highlighter-rouge&quot;&gt;export OWDOSBOX=dosbox&lt;/code&gt;, since I already had DOSBox installed&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;source setvars.sh&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;./buildrel.sh&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;This will use your system GCC to build the Open Watcom toolchain (for all possible hosts &amp;amp; targets).&lt;/p&gt;
+
+&lt;p&gt;Assuming everything went fine, to use the newly-build compiler, some environment variables need to be configured – unlike GCC, where it usually suffices to have it in &lt;code class=&quot;highlighter-rouge&quot;&gt;PATH&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;WATCOM&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;pwd&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;/rel
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$WATCOM&lt;/span&gt;/binl64:&lt;span class=&quot;nv&quot;&gt;$WATCOM&lt;/span&gt;/binl:&lt;span class=&quot;nv&quot;&gt;$PATH&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;INCLUDE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$WATCOM&lt;/span&gt;/h
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Let’s see if we can compile a minimal program…&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;wcl &lt;span class=&quot;nt&quot;&gt;-bt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;dos &lt;span class=&quot;nv&quot;&gt;$WATCOM&lt;/span&gt;/src/hello.c
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;…and run it.&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;dosbox hello.exe
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;using-dos-system-calls&quot;&gt;Using DOS system calls&lt;/h2&gt;
+
+&lt;p&gt;Open Watcom provides an implementation of the Standard C library; however, if you prefer to indulge in the quirkiness of DOS system calls, you can also do that, using Watcom’s funky &lt;code class=&quot;highlighter-rouge&quot;&gt;#pragma aux&lt;/code&gt; syntax. The following program illustrates a call to the &lt;em&gt;INT 21h AH=09h&lt;/em&gt; function (display string):&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;cp&quot;&gt;#pragma aux print = \
+        &quot;mov ah, 09h&quot;   \
+        &quot;int 0x21&quot;      \
+        parm    [dx]    \
+        modify  [ax];
+&lt;/span&gt;
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;cm&quot;&gt;/* string must be terminated with '$' */&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;hello, world&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;$&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;For portability, though, it might be better to include &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;dos.h&amp;gt;&lt;/code&gt; and use the wrappers found there (such as &lt;code class=&quot;highlighter-rouge&quot;&gt;_dos_write&lt;/code&gt;), which should still be a lighter abstraction than &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;stdio.h&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;UPDATE: &lt;a href=&quot;https://ptspts.blogspot.com/2020/04/openwatcom-exeprog.html&quot;&gt;This post&lt;/a&gt; contains many more useful examples and links related to OW2 on Linux.&lt;/p&gt;</content><author><name></name></author><summary type="html">Nowadays, Open Watcom v2 seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux.</summary></entry><entry><title type="html">A variant of Bresenham’s line algorithm for edge walk triangle rasterization</title><link href="https://mcejp.github.io/2020/11/06/bresenham.html" rel="alternate" type="text/html" title="A variant of Bresenham's line algorithm for edge walk triangle rasterization" /><published>2020-11-06T00:00:00+00:00</published><updated>2020-11-06T00:00:00+00:00</updated><id>https://mcejp.github.io/2020/11/06/bresenham</id><content type="html" xml:base="https://mcejp.github.io/2020/11/06/bresenham.html">&lt;p&gt;One way to rasterize triangle-based geometry is to use the &lt;em&gt;edge walk&lt;/em&gt; method (sometimes also incorrectly referred to as the scanline method). Line by line, we find the line segments bounding our triangle, and we &lt;em&gt;walk along&lt;/em&gt; them to determine which pixels of each line are covered by the triangle.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;p&gt;&lt;img src=&quot;../../../images/bresenham/flatbottomtriangle.png&quot; alt=&quot;flat-bottom triangle&quot; /&gt;&lt;/p&gt;
+  &lt;figcaption&gt;A flat-bottom triangle (&lt;a href=&quot;http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html&quot;&gt;source&lt;/a&gt;)&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;I will not repeat the basic ideas (sorting vertices by Y, decomposition into a flat bottom triangle and a flat top triangle) – a good explanation can be found, for example, &lt;a href=&quot;http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html&quot;&gt;on Sunshine’s website&lt;/a&gt;. In this post I want to focus solely on how to correctly use Bresenham’s line drawing algorithm to walk the triangle edges.&lt;/p&gt;
+
+&lt;h1 id=&quot;coverage-rules&quot;&gt;Coverage rules!&lt;/h1&gt;
+
+&lt;p&gt;Drawing one triangle is an easy case, and off-by-one errors won’t be noticed so easily; furthemore, in absence of anti-aliasing, there can be ambiguity about whether certain edge pixels &lt;em&gt;should&lt;/em&gt; be filled or not.&lt;/p&gt;
+
+&lt;p&gt;Once having more complex geometry, though, coverage rules become important to ensure that there will be no gaps in the rasterized geometry. It is desirable to also avoid the opposite (one pixel being covered by two adjacent faces), because it is slightly wasteful, and can lead to ugly flickering artifacts as the camera moves around the scene.&lt;/p&gt;
+
+&lt;p&gt;For Microsoft’s Direct3D 11 graphics API, there is &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-rasterizer-stage-rules&quot;&gt;excellent documentation&lt;/a&gt; of the conventions that it follows, quoted below. We shall assume that conventions adopted by an industry-embraced rendering API for desktop gaming are sound enough for our purpose.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;p&gt;&lt;img src=&quot;../../../images/bresenham/d3d10-rasterrulestriangle.png&quot; alt=&quot;Direct3D coverage rules&quot; /&gt;&lt;/p&gt;
+  &lt;figcaption&gt;Direct3D coverage rules&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Any pixel center which falls inside a triangle is drawn; a pixel is assumed to be inside if it passes the top-left rule. The top-left rule is that a pixel center is defined to lie inside of a triangle if it lies [entirely within the triangle, i.e. not touching any of the edges, or] on the top edge or the left edge of a triangle.&lt;/p&gt;
+
+  &lt;p&gt;Where:&lt;/p&gt;
+
+  &lt;ul&gt;
+    &lt;li&gt;A top edge, is an edge that is exactly horizontal and is above the other edges.&lt;/li&gt;
+    &lt;li&gt;A left edge, is an edge that is not exactly horizontal and is on the left side of the triangle. A triangle can have one or two left edges.&lt;/li&gt;
+  &lt;/ul&gt;
+
+  &lt;p&gt;The top-left rule ensures that adjacent triangles are drawn once.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Let us now formulate the task more specifically:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;triangle given by integer coordinates $(X_1, Y_1)$, $(X_2, Y_2)$, $(X_3, Y_3)$ in screen space
+    &lt;ul&gt;
+      &lt;li&gt;no subpixel precision, sorry (maybe next time?)&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;viewport originating in the top-left corner, X+ pointing right, Y+ pointing down&lt;/li&gt;
+  &lt;li&gt;scan the triangle edges line by line
+    &lt;ul&gt;
+      &lt;li&gt;for each pixel row $Y$, determine $X_{start}, X_{end}$, to fill pixels satisfying $X_{start} \le X \lt X_{end}$ (note the assymmetry here) compliant with &lt;em&gt;Triangle Rasterization Rules (Without Multisampling)&lt;/em&gt; of Direct3D 10/11&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;no floating-point operations and no integer division&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Note: I use capital letters to denote integer coordinates, e.g. those lying in the top-left corner of a pixel. Lowercase letters represent general coordinates which might lie in the pixel’s top-left corner, in its center, or anywhere else.&lt;/p&gt;
+
+&lt;h1 id=&quot;line-discretization&quot;&gt;Line discretization&lt;/h1&gt;
+
+&lt;p&gt;Based on the coverage rules, we can now form a mathematic description of the problem, and re-derive our own Bresenham-like algorithm.&lt;/p&gt;
+
+&lt;p&gt;An important realization here is that, although we specify vertex coordinates at pixel &lt;em&gt;corners&lt;/em&gt;, the sampling points are in pixel &lt;em&gt;centers&lt;/em&gt;. If we describe the triangle edges with their &lt;em&gt;explicit equations&lt;/em&gt; (expressing $x$ as a function of $y$), the coverage rule can be re-formulated as follows:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;with respect to the left edge of the triangle, the center of pixel $(X, Y)$ is inside the triangle if it lies on, or to the right of the edge at &lt;span class=&quot;kdmath&quot;&gt;$Y + 0.5$&lt;/span&gt;, e.g. if &lt;span class=&quot;kdmath&quot;&gt;$X + 0.5 &gt;= x_{left}(Y + 0.5)$&lt;/span&gt;.&lt;/li&gt;
+  &lt;li&gt;with respect to the right edge of the triangle, the center of pixel $(X, Y)$ is inside the triangle if it lies to the left of the edge at &lt;span class=&quot;kdmath&quot;&gt;$Y + 0.5$&lt;/span&gt;, e.g. &lt;span class=&quot;kdmath&quot;&gt;$X + 0.5 &lt; x_{right}(Y + 0.5)$&lt;/span&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;For a line defined by points &lt;span class=&quot;kdmath&quot;&gt;$a=(x_a, y_a), b=(x_b, y_b)$&lt;/span&gt;, the explicit function can be obtained as:&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+x(y) = x_a + \frac{y - y_a}{y_b - y_a}(x_b - x_a)
+$$&lt;/div&gt;
+
+&lt;p&gt;(This function exists as long as the line is not horizontal, e.g. $y_a \ne y_b$, and when processing the edges of flat-top and flat-bottom triangles, we will not encounter any horizontal lines except in degenerate cases.)&lt;/p&gt;
+
+&lt;p&gt;This representation gives us a lot of power; given the bounding line in screen space and an &lt;span class=&quot;kdmath&quot;&gt;$y$&lt;/span&gt;-cordinate, we can for example find the left-most filled pixel ($X_{left}$) by determining the smallest integer $X_{left}$ that satisfies the inequality&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+X_{left} + 0.5 \ge x_a + \frac{y - y_a}{y_b - y_a}(x_b - x_a).
+$$&lt;/div&gt;
+
+&lt;p&gt;(Note that this calculation can be also performed with sub-pixel precision.)&lt;/p&gt;
+
+&lt;h1 id=&quot;an-efficient-algorithm&quot;&gt;An efficient algorithm&lt;/h1&gt;
+
+&lt;p&gt;Of course, as said above, we don’t want no stinkin’ division (nor fractional numbers), so the initial equation will need some rework. First we will discuss the left bounding line segment and assume that &lt;span class=&quot;kdmath&quot;&gt;$x_b \ge x_a$&lt;/span&gt; and &lt;span class=&quot;kdmath&quot;&gt;$y_b &gt; y_a$&lt;/span&gt;, e.g. we are going left to right, top to bottom. Let’s start by un-generalizing some of the variables: we snap the line vertices to pixel corners, and we test at pixel-center y-coordinates.&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+X_{left} + 0.5 \ge X_a + \frac{(Y + 0.5) - Y_a}{Y_b - Y_a}(X_b - X_a).
+$$&lt;/div&gt;
+
+&lt;p&gt;Now we can proceed to eliminate the fractional values and division operation.&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+2X_{left} + 1 \ge 2X_a + \frac{2Y + 1 - 2Y_a}{Y_b - Y_a}(X_b - X_a),
+$$&lt;/div&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+(2X_{left} + 1)(Y_b - Y_a) \ge 2(Y_b - Y_a)X_a + (2Y + 1 - 2Y_a)(X_b - X_a).
+$$&lt;/div&gt;
+
+&lt;p&gt;Our goal here is to arrive at an inequality that can be tested for a candidate &lt;span class=&quot;kdmath&quot;&gt;$X_{left}$&lt;/span&gt;, plus a recipe to adjust this &lt;span class=&quot;kdmath&quot;&gt;$X_{left}$&lt;/span&gt; until the inequality holds, starting at &lt;span class=&quot;kdmath&quot;&gt;$X_a$&lt;/span&gt;. Thus we need to separate the term dependent on &lt;span class=&quot;kdmath&quot;&gt;$(X_{left} - X_a)$&lt;/span&gt;:&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+2(Y_b - Y_a) (X_{left} - X_a) + (Y_b - Y_a) \ge (2Y + 1 - 2Y_a)(X_b - X_a).
+$$&lt;/div&gt;
+
+&lt;p&gt;At the same time, since we need to track the line over a range of &lt;span class=&quot;kdmath&quot;&gt;$Y$&lt;/span&gt; coordinates, it will be also useful to extract the term dependent on &lt;span class=&quot;kdmath&quot;&gt;$(Y - Y_a)$&lt;/span&gt;:&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+2(Y_b - Y_a) (X_{left} - X_a) + (Y_b - Y_a) - (X_b - X_a) - 2(Y - Y_a)(X_b - X_a) \ge 0.
+$$&lt;/div&gt;
+
+&lt;p&gt;Alright – now we can use the insight of Dr. Bresenham to convert the inequality into an iterative algorithm!&lt;/p&gt;
+
+&lt;p&gt;In the starting point &lt;span class=&quot;kdmath&quot;&gt;$(X_a, Y_a)$&lt;/span&gt; we store the left side of the inequality into an “error accumulator” variable:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-c+=&quot;&gt;E := (Y_b - Y_a) - (X_b - X_a)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then, we check whether &lt;span class=&quot;kdmath&quot;&gt;$E \ge 0$&lt;/span&gt;. If this is not the case, we are “lagging behind” the line (we said the line was going left to right, and we start at the left-most, top-most point). Thus, we have to increase &lt;span class=&quot;kdmath&quot;&gt;$X_{left}$&lt;/span&gt; and correspondingly adjust the error accumulator by the x-dependent term of the line inequality. Then we check again and repeat the cycle as many times as needed.&lt;/p&gt;
+
+&lt;div class=&quot;language-c++ highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt;      &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;At this point our &lt;span class=&quot;kdmath&quot;&gt;$X_{left}$&lt;/span&gt; is valid and we can process one line of the triangle. When done, we will proceed to the next line (until we reach the end of the triangle). Again we must not forget to adjust the error term.&lt;/p&gt;
+
+&lt;div class=&quot;language-c++ highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;X_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;In sum, the structure of the code to scan one edge might look like this:&lt;/p&gt;
+
+&lt;div class=&quot;language-c++ highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;X_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;per&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;processing&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;goes&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;here&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;X_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;right-edge&quot;&gt;Right edge&lt;/h4&gt;
+
+&lt;p&gt;Now, what about the right edge of the triangle? The answer is actually hidden in what was said at the beginning. Between adjacent faces, there shall be neither any gaps, nor overlap. That means that the right edge of face A has to be calculated in exactly the same way as the left edge of face B, but shared pixels ought to be covered by only one of the faces. The consequence is that we scan the right edge in the same way as the left edge, and we only fill pixels where $X &amp;lt; X_{right}$.&lt;/p&gt;
+
+&lt;p&gt;(Note that this alone doesn’t guarantee pixel-perfect rendering of adjancent faces. We must also ensure that the geometry doesn’t contain any &lt;a href=&quot;https://wiki.ldraw.org/wiki/T-Junction&quot;&gt;T-junctions&lt;/a&gt; and that the vertices of adjacent faces are &lt;em&gt;bitwise-equal&lt;/em&gt;. The latter requirement matters for numeric format that permit multiple encodings of the same numeric value, such as de-normalized IEEE 754 floats.)&lt;/p&gt;
+
+&lt;h1 id=&quot;going-negative&quot;&gt;Going Negative&lt;/h1&gt;
+
+&lt;p&gt;We have now solved the case of &lt;span class=&quot;kdmath&quot;&gt;$x_b \ge x_a$&lt;/span&gt;. How do we deal with the opposite?&lt;/p&gt;
+
+&lt;p&gt;Again, we must satisfy the inequality&lt;/p&gt;
+
+&lt;div class=&quot;kdmath&quot;&gt;$$
+X_{left} + 0.5 \ge X_a + \frac{(Y + 0.5) - Y_a}{Y_b - Y_a}(X_b - X_a),
+$$&lt;/div&gt;
+
+&lt;p&gt;but this time the worry is not that “the edge will run away to the right”; instead, it can happen that “we will not be in the leftmost possible position”. An intuitive solution is then to check &lt;em&gt;one pixel to the left&lt;/em&gt; (so &lt;span class=&quot;kdmath&quot;&gt;$X_{left} - 0.5$&lt;/span&gt;), and keep decreasing &lt;span class=&quot;kdmath&quot;&gt;$X_{left}$&lt;/span&gt; until that test pixel is just barely out of bounds.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;This is different from what most “Bresenham tutorials” on the internet will tell you to do&lt;/strong&gt; – but it is crucial for ensuring that only pixels lying in the triangle (those with barycentric coordinates $s \ge 0, t \ge 0, s + t \le 1$) will be filled, which in turn is important for per-pixel interpolation of values like texture coordinates.&lt;/p&gt;
+
+&lt;p&gt;In our algorithm, we can simply include a bias in the initialization of the error term. We &lt;em&gt;pre-subtract&lt;/em&gt; one worth of x-increment, which is &lt;span class=&quot;kdmath&quot;&gt;$2(Y_b - Y_a)$&lt;/span&gt;. In terms of code:&lt;/p&gt;
+
+&lt;div class=&quot;language-c++ highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;X_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;X_left&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Y_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Y_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;per&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;processing&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;goes&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;here&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;E&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;X_b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;X_a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;       &lt;span class=&quot;c1&quot;&gt;// note that the right-side expression&lt;/span&gt;
+                                &lt;span class=&quot;c1&quot;&gt;// is now negative, so we *increase* E&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h1 id=&quot;but-does-it-work&quot;&gt;But does it work?&lt;/h1&gt;
+
+&lt;p&gt;Well, what could be better proof than a screenshot of the algorithm in action?!&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;p&gt;&lt;img src=&quot;../../../images/bresenham/not-daggerfall.png&quot; alt=&quot;Screenshot&quot; /&gt;&lt;/p&gt;
+  &lt;figcaption&gt;Triangle rasterization according to the algorithm described herein. Textures and some geometry are courtesy of TES: Daggerfall&lt;/figcaption&gt;
+&lt;/figure&gt;</content><author><name></name></author><summary type="html">One way to rasterize triangle-based geometry is to use the edge walk method (sometimes also incorrectly referred to as the scanline method). Line by line, we find the line segments bounding our triangle, and we walk along them to determine which pixels of each line are covered by the triangle.</summary></entry><entry><title type="html">CS4954: displaying picture</title><link href="https://mcejp.github.io/2020/10/19/cs4954_2.html" rel="alternate" type="text/html" title="CS4954: displaying picture" /><published>2020-10-19T00:00:00+00:00</published><updated>2020-10-19T00:00:00+00:00</updated><id>https://mcejp.github.io/2020/10/19/cs4954_2</id><content type="html" xml:base="https://mcejp.github.io/2020/10/19/cs4954_2.html">&lt;p&gt;After a quick color bars demo from the &lt;a href=&quot;/2020/09/27/cs4954.html&quot;&gt;last time&lt;/a&gt;, today we will get something to show up on the screen.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954-2/clone_buino.jpg&quot; alt=&quot;Image of circuit board&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Steps to do:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;assemble the hardware (&lt;a href=&quot;https://hackaday.io/project/123606/gallery#a2aea79613c22f5bbbc11465d69d242a&quot;&gt;done!&lt;/a&gt;)&lt;/li&gt;
+  &lt;li&gt;understand the required timing &amp;amp; picture encoding (done!)&lt;/li&gt;
+  &lt;li&gt;appropriately configure the control registers&lt;/li&gt;
+  &lt;li&gt;feed image data to the chip&lt;/li&gt;
+  &lt;li&gt;see it on the screen!&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;cs4954-register-settings&quot;&gt;CS4954 register settings&lt;/h2&gt;
+
+&lt;p&gt;Unlike image generation, which is done by the FPGA, configuration of the CS4954 internal registers is achieved over I&lt;sub&gt;2&lt;/sub&gt;C by an application processor.&lt;/p&gt;
+
+&lt;p&gt;The configuration is, in fact, quite easy:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;CONTROL_0&lt;/strong&gt;: Set &lt;em&gt;CCIR565=1&lt;/em&gt;, &lt;em&gt;IN_MODE=1&lt;/em&gt;, &lt;em&gt;CBCR_UV=1&lt;/em&gt; and &lt;strong&gt;clear all other bits&lt;/strong&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;CONTROL_4&lt;/strong&gt;: Set &lt;em&gt;COMDAC_PD=0&lt;/em&gt;, leave default values of other bits&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;CONTROL_5&lt;/strong&gt;: Set &lt;em&gt;EN_COM=1, LOW_IMP=1&lt;/em&gt;, leave default values of other bits&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;(Default values assumed for all other registers)&lt;/p&gt;
+
+&lt;h2 id=&quot;fpga-implementation&quot;&gt;FPGA implementation&lt;/h2&gt;
+
+&lt;p&gt;To implement code generation in an FPGA, we will need to build up a few functional blocks:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;BT.656 stream encoder&lt;/li&gt;
+  &lt;li&gt;Picture/pattern generator&lt;/li&gt;
+  &lt;li&gt;A top-level module to wire everything up&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;stream-encoder&quot;&gt;Stream encoder&lt;/h3&gt;
+
+&lt;p&gt;We would like to encapsulate the somewhat messy synchronization timing, therefore the stream encoder will need to keep track of all the timing. It has to know where a new field/scanline begins and it needs to emit the synchronization words. Ultimately, we will get away with a bunch of state machines and a few timing registers. The RTL entity (we will use Verilog) can be parametrized to allow, for example, PAL mode operation (which differs from NTSC in the frame rate, number of lines and number of cycles per line).&lt;/p&gt;
+
+&lt;h3 id=&quot;picture-generator&quot;&gt;Picture generator&lt;/h3&gt;
+
+&lt;p&gt;The question is, what to show on the screen? The CS4954 datasheet gave me an idea: since the colors used for the built-in color bar generator are described in the datasheet, why not begin by trying to replicate this simple test pattern?&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Color&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;Y&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;C&lt;sub&gt;b&lt;/sub&gt;&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;C&lt;sub&gt;r&lt;/sub&gt;&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;R&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;G&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;B&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;white&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;167&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;176&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;176&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;176&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;yellow&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;156&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-84&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;14&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;185&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;185&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-6&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;cyan&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;138&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;28&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-84&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;8&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;199&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;199&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;green&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;127&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-56&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-70&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;18&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;208&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;16&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;magenta&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;110&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;56&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;70&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;221&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;31&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;222&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;red&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;99&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-28&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;84&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;231&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;39&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;40&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;blue&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;81&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;84&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-14&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;53&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;54&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;245&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;black&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;70&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;63&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;63&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;63&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;center&gt;The color bars as specified in the datasheet, which lies about C&lt;sub&gt;b&lt;/sub&gt; and C&lt;sub&gt;r&lt;/sub&gt; being encoded in two's complement; in fact, they are encoded with an offset of 128, which eliminates the negative values. Corresponding RGB colors added by me.&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;From the RGB values you can see that black is far from actually black and white is far from white. What is going on here? For now, let’s try to use the provided values first, and later we can investigate.&lt;/p&gt;
+
+&lt;h3 id=&quot;integration&quot;&gt;Integration&lt;/h3&gt;
+
+&lt;p&gt;To put things where they belong on the screen, the picture generator needs to be somehow synchronized with the stream encoder. As a person with a mathematics or CS background, the first idea might be to tread the picture as a function &lt;code&gt;f: (x, y) -&amp;gt; (color)&lt;/code&gt;. Accordingly, the stream encoder could output the current X &amp;amp; Y coordinates, and the picture generator would provide the corresponding color. One of the problems here is that we are dealing with synchronous logic, so by the &lt;em&gt;current&lt;/em&gt; X &amp;amp; Y are output from the stream encoder, it is already too late. So the X, Y should be ahead by a few cycles. How many? Depends on how much time the picture generator needs! The theoretical minimum for bi-directional synchronous communication would be 2 cycles.&lt;/p&gt;
+
+&lt;p&gt;There is another, more “hardware-friendly” approach: emit 1-cycle synchronization strobes at the beginning and end of each frame and at the start and end of each line. Having both the start &lt;em&gt;and&lt;/em&gt; end makes it easier to deal with some &lt;em&gt;off-by-1&lt;/em&gt; situations which can lead to more understandable code; for example, if you need to scan image out of a memory, it is convenient to reset the pointer at the start of a field, but increment it at the end of each line. If some of the signals are unused, they will be optimized out anyway. Similarly, for each image pixel pair (a C&lt;sub&gt;b&lt;/sub&gt;–Y&lt;sub&gt;1&lt;/sub&gt;–C&lt;sub&gt;r&lt;/sub&gt;–Y&lt;sub&gt;2&lt;/sub&gt; tuple), an &lt;em&gt;accept&lt;/em&gt; strobe is generated ater the pixel data is latched, and a &lt;em&gt;pre-accept&lt;/em&gt; pulse is generated exactly 2 cycles ahead.&lt;/p&gt;
+
+&lt;p&gt;It remains to be seen if this interface is a suitable choice for building up a simple video pipeline. Perhaps it will prove necessary to split out the timing generation from the stream encoder, so that video data can pass through multiple pipeline stages along with the synchronization signals.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954-2/bt656-encoder.svg&quot; alt=&quot;Control sign&quot; /&gt;
+&lt;em&gt;&lt;center&gt;A block diagram of our test pattern generator and the stream encoder. &lt;code&gt;VENC_*&lt;/code&gt; outputs go directly to the corresponding pins on the CS4954. &lt;code&gt;video_pll&lt;/code&gt; delays the 27MHz clock by 90° so that the signals can comfortably propagate before the CS4954 sees the rising edge of the clock.&lt;br /&gt;Not shown: I&lt;sup&gt;2&lt;/sup&gt;C bus for configuration.&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Since the test pattern is completely invariant in the vertical direction, it actually needs just 2 control signals (start-of-line and pixel accept); things will get more interesting once we start to generate text or bitmap output&lt;/p&gt;
+
+&lt;h2 id=&quot;optimization--improvements&quot;&gt;Optimization &amp;amp; improvements&lt;/h2&gt;
+
+&lt;h3 id=&quot;color-bars&quot;&gt;Color bars&lt;/h3&gt;
+
+&lt;p&gt;Using the datasheet-provided values for the color bars results in a washed out picture as can be seen in the screenshot below. From skimming &lt;a href=&quot;https://en.wikipedia.org/wiki/SMPTE_color_bars&quot;&gt;this article about SMTPE color bars&lt;/a&gt;, it would seem that we are generating the so-called &lt;em&gt;75%&lt;/em&gt; variant. Indeed, multiplying the specified C&lt;sub&gt;b&lt;/sub&gt; and C&lt;sub&gt;r&lt;/sub&gt; values by ⁴⁄₃ brings them to the full expected range of 16-240; however, I have not been able to find the equation for fixing up Y.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954-2/washed-out.png&quot; alt=&quot;screenshot&quot; /&gt;
+&lt;em&gt;&lt;center&gt;What is this? A serving of fresh vomit?!&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Fortunately, since the RGB-to-YC&lt;sub&gt;b&lt;/sub&gt;C&lt;sub&gt;r&lt;/sub&gt; conversion matrix is well-known, we can easily &lt;a href=&quot;https://ideone.com/YbU4bD&quot;&gt;generate our own table&lt;/a&gt; using full-scale RGB values:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;numpy&lt;/span&gt;
+
+&lt;span class=&quot;c1&quot;&gt;# RGB in 0..1; YCbCr in 8-bit space
+&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;RGB_to_YCbCr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;numpy&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;array&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;  &lt;span class=&quot;mf&quot;&gt;65.481&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;128.553&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;  &lt;span class=&quot;mf&quot;&gt;24.966&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;  &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;37.797&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;74.203&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;112.000&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;112.000&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;93.786&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;18.214&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;       &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;       &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;       &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;   &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;])&lt;/span&gt;
+
+&lt;span class=&quot;c1&quot;&gt;# white, yellow, cyan, green, magenta, red, blue, black
+&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Rs&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;Gs&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;Bs&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;R&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;G&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;B&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;zip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Rs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Gs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Bs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;Y&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Cb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Cr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;RGB_to_YCbCr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;@&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;R&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;G&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;B&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;{int(round(Y)):&amp;gt;3} {int(round(Cb - 128)):&amp;gt;4} {int(round(Cr - 128)):&amp;gt;4}&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;To allow direct comparison, C&lt;sub&gt;b&lt;/sub&gt; and C&lt;sub&gt;r&lt;/sub&gt; are again displayed in signed 8-bit format.&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Color&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;Y&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;C&lt;sub&gt;b&lt;/sub&gt;&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;C&lt;sub&gt;r&lt;/sub&gt;&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;R&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;G&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;B&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;white&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;235&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;yellow&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;210&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-112&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;18&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;cyan&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;170&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;38&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-112&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;green&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;145&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-74&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-94&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;magenta&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;106&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;74&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;94&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;red&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;81&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-38&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;112&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;blue&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;41&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;112&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;-18&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;255&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;black&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;16&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;And the final result:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954-2/not-washed-out.png&quot; alt=&quot;screenshot&quot; /&gt;
+&lt;em&gt;&lt;center&gt;Much better, isn't it?&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;resource-usage&quot;&gt;Resource usage&lt;/h3&gt;
+
+&lt;p&gt;After some optimization, the stream encoder get implemented in 120 logic cells and the color bar generator takes up 29 LC in a MAX 10 FPGA.&lt;/p&gt;
+
+&lt;p&gt;Next time we will finally look into displaying some text and/or images.&lt;/p&gt;</content><author><name></name></author><summary type="html">After a quick color bars demo from the last time, today we will get something to show up on the screen.</summary></entry><entry><title type="html">Getting started with the CS4954</title><link href="https://mcejp.github.io/2020/09/27/cs4954.html" rel="alternate" type="text/html" title="Getting started with the CS4954" /><published>2020-09-27T00:00:00+00:00</published><updated>2020-09-27T00:00:00+00:00</updated><id>https://mcejp.github.io/2020/09/27/cs4954</id><content type="html" xml:base="https://mcejp.github.io/2020/09/27/cs4954.html">&lt;p&gt;The &lt;a href=&quot;../../../images/cs4954/CS4954-55_F6-39674.pdf&quot;&gt;CS4954&lt;/a&gt; is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the &lt;a href=&quot;https://hackaday.io/project/123606-clone-buino-dual&quot;&gt;CLONE BUINO DUAL&lt;/a&gt; to drive the composite video output.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954/cs4954-block.svg&quot; alt=&quot;CS4954 block diagram&quot; /&gt;
+&lt;em&gt;&lt;center&gt;CS4954 block diagram, courtesy of Cirrus Logic. Out of its many inputs and outputs, we only care about a few, highlighted in bold.&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;hello-world&quot;&gt;Hello world?&lt;/h2&gt;
+
+&lt;p&gt;To get video output on the composite (CVBS) port with minimum effort, these are the steps to take:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Apply power to the chip&lt;/li&gt;
+  &lt;li&gt;Provide 27MHz reference clock&lt;/li&gt;
+  &lt;li&gt;Via I&lt;sub&gt;2&lt;/sub&gt;C, change the following control flags (preserve the defaults for other flags and other registers):
+    &lt;ul&gt;
+      &lt;li&gt;&lt;strong&gt;CONTROL_0&lt;/strong&gt;: Set &lt;em&gt;MSTR=1&lt;/em&gt; (Master Mode)&lt;/li&gt;
+      &lt;li&gt;&lt;strong&gt;CONTROL_4&lt;/strong&gt;: Set &lt;em&gt;COMDAC_PD=0&lt;/em&gt; (composite DAC: power up)&lt;/li&gt;
+      &lt;li&gt;&lt;strong&gt;CONTROL_5&lt;/strong&gt;: Set &lt;em&gt;EN_COM=1, LOW_IMP=1&lt;/em&gt; (enable composite DAC, enable composite output)&lt;/li&gt;
+      &lt;li&gt;&lt;strong&gt;CONTROL_3&lt;/strong&gt;: Set &lt;em&gt;CBAR=1&lt;/em&gt; (enable internal color bar generator)&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Note that the default output format is NTSC-M ITU-R.BT601. If this is not what you want, you can consult Table 4 of the datasheet which describes register configuration for other formats.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Tip: you might want to make use of &lt;a href=&quot;https://github.com/mcejp/cs4954/blob/master/cs4954.h&quot;&gt;cs4954.h&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;That should be enough to get you the familiar color bars:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/cs4954/screenshot.png&quot; alt=&quot;screenshot&quot; /&gt;
+&lt;em&gt;&lt;center&gt;Here captured through a USB digitizer dongle&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Another thing to try is to set &lt;em&gt;CBAR=0&lt;/em&gt; and then varying the &lt;em&gt;BKG_COLOR&lt;/em&gt; register. You should get a screen filled with a solid color that changes accordingly. The &lt;em&gt;BKG_COLOR&lt;/em&gt; register is encoded as a 3:3:2-bit RGB value, no need to worry about any YC&lt;sub&gt;b&lt;/sub&gt;C&lt;sub&gt;r&lt;/sub&gt; bullshit.&lt;/p&gt;
+
+&lt;p&gt;Thanks to Master Mode, we don’t have to worry about providing any synchronization signals – everything is taken care of internally.&lt;/p&gt;
+
+&lt;h2 id=&quot;next-steps&quot;&gt;Next steps&lt;/h2&gt;
+
+&lt;p&gt;Color bars are a nice start, but what if we want to display our own picture? For this, we need to first gain understanding of the input format(s) understood by the video encoder. In fact, with the CS4954, we have 2 choices of input encoding:&lt;/p&gt;
+
+&lt;h3 id=&quot;itu-r-bt601-spec&quot;&gt;ITU-R BT.601 (&lt;a href=&quot;https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.601-7-201103-I!!PDF-E.pdf&quot;&gt;spec&lt;/a&gt;)&lt;/h3&gt;
+
+&lt;p&gt;In this mode, the inputs go in as 8-bit words in the pattern C&lt;sub&gt;b&lt;/sub&gt;–Y&lt;sub&gt;1&lt;/sub&gt;–C&lt;sub&gt;r&lt;/sub&gt;–Y&lt;sub&gt;2&lt;/sub&gt;. This pattern repeats 360 times during the visible part of a scanline, yielding 720 pixels of luminance resolution and 360 pixels of chrominance resolution. This is also known as &lt;a href=&quot;https://en.wikipedia.org/wiki/Chroma_subsampling#4:2:2&quot;&gt;4:2:2 chroma subsampling&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Conversion between the RGB and YC&lt;sub&gt;b&lt;/sub&gt;C&lt;sub&gt;r&lt;/sub&gt; color spaces is conceptually simple, but requires matrix multiplication, which is not a problem on PC, but can be tricky or expensive in embedded systems. The coefficients can be found &lt;a href=&quot;https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion&quot;&gt;here&lt;/a&gt;. Note the “interesting” ranges of values: 16–235 for Y, 16-240 for C&lt;sub&gt;b&lt;/sub&gt; and C&lt;sub&gt;r&lt;/sub&gt;. Legend says that these have something to do with analog representation of the signals and under/overshoot concerns.&lt;/p&gt;
+
+&lt;p&gt;The CS4954 gives us a choice of a Master or a Slave mode. In Master mode, the chip generates HSYNC &amp;amp; VSYNC signals and provides them as digital outputs; conversely, to use Slave Mode, HSYNC and VSYNC must be fed to the video encoder along with pixel data.&lt;/p&gt;
+
+&lt;h4 id=&quot;timing&quot;&gt;Timing&lt;/h4&gt;
+
+&lt;p&gt;In NTSC (interlaced) mode, a &lt;em&gt;frame&lt;/em&gt; consists of 2 &lt;em&gt;fields&lt;/em&gt;. You get 29.97 frames, so 59.94 fields per second. One frame consists of:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  3   blank lines      (  1..  3)
+  3   VSYNC lines      (  4..  6)
+ 15   blank lines      (  7.. 21)
+240   picture lines    ( 22..261)
+  4.5 blank lines      (262, 263, 264, 265 + 1st half of 266)
+  3   VSYNC lines      (middle of 266 .. middle of 269)
+ 15.5 blank lines      (2nd half of 269 + 270..284)
+240   picture lines    (285..524)
+  1   blank line       (525)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The numbers in brackets are 1-based and inclusive.&lt;/p&gt;
+
+&lt;p&gt;As for horizontal timing:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; 128 HSYNC cycles    (   1.. 128)
+ 116 blank cycles    ( 129.. 244)
+1440 pixel cycles    ( 245..1684) encoding 720 horizontal pixels
+  32 blank cycles    (1685..1716)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;A quick verification: 1716 * 525 * (30 / 1.001) = 27,000,000 cycles per second, which is exactly the reference frequency used by the CS4954.&lt;/p&gt;
+
+&lt;h3 id=&quot;itu-r-bt656-spec&quot;&gt;ITU-R BT.656 (&lt;a href=&quot;https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.656-5-200712-I!!PDF-E.pdf&quot;&gt;spec&lt;/a&gt;)&lt;/h3&gt;
+
+&lt;p&gt;The BT.656 spec is freely available, but I found the wording just a little bit ambiguous. On the other hand, the application note from Intersil (&lt;a href=&quot;../../../images/cs4954/8625.itu656.pdf&quot;&gt;mirrored here&lt;/a&gt;) is crystal clear and presents data in a format useful for encode implementation.&lt;/p&gt;
+
+&lt;p&gt;BT.656 encodes pixel data in the same way as BT.601, but it also embeds synchronization in the data stream instead of requiring additional discrete signals. The vertical timing becomes much simpler, with no silly half-lines:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; 21 blank lines      (  1.. 21)
+240 picture lines    ( 22..261)
+ 23 blank lines      (262..284)
+240 picture lines    (285..524)
+  1 blank line       (525)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;As for horizontal timing:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   4 EAV cycles      [FF, 00, 00, XY]
+ 268 dummy cycles    [80, 10, ...]
+   4 SAV cycles      [FF, 00, 00, XY]
+1440 pixel cycles    [Cb, Y1, Cr, Y2]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;yielding the same grand total of 1716 cycles/line.&lt;/p&gt;
+
+&lt;p&gt;The XY word is a bit more involved: from MSB to LSB its 8 bits read as &lt;code class=&quot;highlighter-rouge&quot;&gt;1FVHPPPP&lt;/code&gt;. Fortunately, we can pretty much ignore the meaning of the individual bits, thanks to this handy decoding table:&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;Line number, 1-based, inclusive&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;F&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;V&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;H (EAV)&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;H (SAV)&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1-3&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;4-20 &lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;21-263&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;264-265&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;266-282&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;283-525&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;1&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;center&gt;Sanity-preserving table courtesy of Intersil engineers&lt;/center&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;And what about &lt;code class=&quot;highlighter-rouge&quot;&gt;PPPP&lt;/code&gt;? These bits encode 4-bit parity which &lt;del&gt;allows correction of any single-bit error&lt;/del&gt; no one seems to care about, at least for inter-IC applications. Again, you can find more details in the Intersil application note.&lt;/p&gt;
+
+&lt;p&gt;Since BT.656 mode needs 2 pins fewer than BT.601, it should be the more convenient way forward.&lt;/p&gt;
+
+&lt;p&gt;This background should be enough to generate a valid BT.656 stream from our FPGA. Next time.&lt;/p&gt;
+
+&lt;h2 id=&quot;open-questions&quot;&gt;Open questions&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Is there a drop-in replacement chip with better availability?&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;Beware that the BT.601 spec says that the odd-field vertical sync flag should last up to and including line 19, not 20. In practice, this difference does not seem to cause any issues; in fact, it seems that every revision of the standard changes this number somewhat randomly. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;</content><author><name></name></author><summary type="html">The CS4954 is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the CLONE BUINO DUAL to drive the composite video output.</summary></entry><entry><title type="html">Untitled</title><link href="https://mcejp.github.io/2020/07/05/untitled.html" rel="alternate" type="text/html" title="Untitled" /><published>2020-07-05T00:00:00+00:00</published><updated>2020-07-05T00:00:00+00:00</updated><id>https://mcejp.github.io/2020/07/05/untitled</id><content type="html" xml:base="https://mcejp.github.io/2020/07/05/untitled.html">&lt;p&gt;&lt;img src=&quot;../../../images/hero/lofimountain-scatter-v2a.png&quot; alt=&quot;Image&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><summary type="html"></summary></entry><entry><title type="html">Untitled</title><link href="https://mcejp.github.io/2018/07/02/untitled.html" rel="alternate" type="text/html" title="Untitled" /><published>2018-07-02T00:00:00+00:00</published><updated>2018-07-02T00:00:00+00:00</updated><id>https://mcejp.github.io/2018/07/02/untitled</id><content type="html" xml:base="https://mcejp.github.io/2018/07/02/untitled.html">&lt;p&gt;&lt;img src=&quot;../../../images/hero/snap2018-07-02-21-17-53.png&quot; alt=&quot;Image&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><summary type="html"></summary></entry><entry><title type="html">To LCD or not to LCD: befriending the ILI9163</title><link href="https://mcejp.github.io/2015/11/22/ili9163.html" rel="alternate" type="text/html" title="To LCD or not to LCD: befriending the ILI9163" /><published>2015-11-22T00:00:00+00:00</published><updated>2015-11-22T00:00:00+00:00</updated><id>https://mcejp.github.io/2015/11/22/ili9163</id><content type="html" xml:base="https://mcejp.github.io/2015/11/22/ili9163.html">&lt;div style=&quot;float: right; margin: 0em 0em 1em 1em&quot;&gt;
+    &lt;img src=&quot;../../../images/2015-11-22-ili9163/IMG_0671.JPG&quot; width=&quot;255&quot; /&gt;
+&lt;/div&gt;
+
+&lt;p&gt;In this first blog post, I’ll talk a bit about my experience with the very cheap 1.44” 128x128 LCD available from eBay (also marketed as “Nokia 5110 LCD”), as well as other similar sites, and interfacing it to an Arduino Pro Micro board, also available from eBay, using own hand-written assembly code.&lt;/p&gt;
+
+&lt;h1 id=&quot;gathering-intelligence&quot;&gt;Gathering intelligence&lt;/h1&gt;
+
+&lt;p&gt;The first thing you might notice about this product is that neither the product listing nor the actual PCB give any clue about how to talk to the display driver, or in fact, what kind of controller has been used at all. Fortunately, a simple Google query (I’ve found it very reliable to just search for &lt;em&gt;&amp;lt;part name&amp;gt; arduino&lt;/em&gt; to learn about how to interface with something) revealed that the controller IC is an ILI9163C. &lt;a href=&quot;https://github.com/sumotoy/TFT_ILI9163C&quot;&gt;Sumotoy’s library&lt;/a&gt; for interfacing the LCD from Arduino also turned up, but I decided not to use it for the time being and to roll my own code from scratch. In part because I had no interest in using the Arduino software framework in the final project and also because I saw this as an interesting little challenge.&lt;/p&gt;
+
+&lt;p&gt;The nice thing about the ILI9163C is the fact that finding &lt;a href=&quot;http://www.orientdisplay.com/pdf/ILI9163C.pdf&quot;&gt;the datasheet&lt;/a&gt; is trivial. The less nice thing is how bad the datasheet is. For a rather complex IC like this, the datasheet is poorly organized (there is no PDF index and the ToC lists all topics as being on page 4), often unclear and clunky, and contains tons of typos and copy-paste errors. Then again, for the price…&lt;/p&gt;
+
+&lt;p&gt;In any case, it turns out that the IC supports several serial and parallel interfaces and the choice of which to use is left to the product designer (in this case author of the “red PCB”). It wasn’t hard to figure out which of the interfaces was used here and which pins in the datasheet correspond to the 8-pin header on the board.&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;datasheet&lt;/th&gt;
+      &lt;th&gt;LCD PCB&lt;/th&gt;
+      &lt;th&gt;MCU&lt;/th&gt;
+      &lt;th&gt;purpose&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;–&lt;/td&gt;
+      &lt;td&gt;LED&lt;/td&gt;
+      &lt;td&gt;tied to 3.3 V&lt;/td&gt;
+      &lt;td&gt;LCD backlight power supply; on-board 100R series resistor&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;SCL&lt;/td&gt;
+      &lt;td&gt;SCK&lt;/td&gt;
+      &lt;td&gt;SCK&lt;/td&gt;
+      &lt;td&gt;SPI clock&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;SDA&lt;/td&gt;
+      &lt;td&gt;SDA&lt;/td&gt;
+      &lt;td&gt;MOSI&lt;/td&gt;
+      &lt;td&gt;SPI data, half-duplex&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;WRX&lt;/td&gt;
+      &lt;td&gt;A0&lt;/td&gt;
+      &lt;td&gt;digital output&lt;/td&gt;
+      &lt;td&gt;toggle between command (LOW) and data (HIGH) mode&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;RESX&lt;/td&gt;
+      &lt;td&gt;RESET&lt;/td&gt;
+      &lt;td&gt;digital output or tied high&lt;/td&gt;
+      &lt;td&gt;pull low for HW reset&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;CSX&lt;/td&gt;
+      &lt;td&gt;CS&lt;/td&gt;
+      &lt;td&gt;digital output (or tied low ?)&lt;/td&gt;
+      &lt;td&gt;pull low to initiate communication&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;–&lt;/td&gt;
+      &lt;td&gt;GND&lt;/td&gt;
+      &lt;td&gt;GND&lt;/td&gt;
+      &lt;td&gt;common ground&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;–&lt;/td&gt;
+      &lt;td&gt;VCC&lt;/td&gt;
+      &lt;td&gt;tied to 3.3 V&lt;/td&gt;
+      &lt;td&gt;supply power for LCD &amp;amp; driver&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;An important thing to note here: &lt;strong&gt;the driver IC only allows 3.3V on any of its pins and is not 5V-tolerant!&lt;/strong&gt; If you hook it up directly (e.g. without using a level shifter) to your Arduino, you MUST NOT plug into USB or use an external power supply with the onboard 5V regulator. (I haven’t personally tested how quickly the IC gets damaged when subjected to such voltage, but decided not to push it)&lt;/p&gt;
+
+&lt;p&gt;What I did is use an external &lt;a href=&quot;http://www.ti.com/lit/ds/symlink/lm1117-n.pdf&quot;&gt;3.3V linear regulator&lt;/a&gt;, powered through USB from a different board, with its output hooked up to the “5V” pin on the Arduino. This meant that every time I wanted to reprogram the Arduino through USB, I had to pop it out of my breadboard. Slightly annoying, but acceptable.&lt;/p&gt;
+
+&lt;p&gt;Out of laziness and to achieve maximum performance, I kept using the onboard 16 MHz oscillator even at this reduced operating voltage. I realize that this is out-of-spec for the ATmega32U4 and I won’t be surprised if it suddenly stops working one day, but so far I haven’t had any issues.&lt;/p&gt;
+
+&lt;h1 id=&quot;first-contact&quot;&gt;First contact&lt;/h1&gt;
+
+&lt;div style=&quot;float: right; margin: 0em 0em 1em 1em&quot;&gt;
+    &lt;img src=&quot;../../../images/2015-11-22-ili9163/IMG_0658.JPG&quot; width=&quot;255&quot; /&gt;
+&lt;/div&gt;
+
+&lt;p&gt;With the hardware set up, it was time to get into writing the software. My initial blind attempt to just pull the Data selection pin high and shove random data through SPI wasn’t met with success. Although I later found out that the SPI peripheral was never getting initialized because of a typo, this wouldn’t have worked anyways. Therefore I set on a painful journey through the datasheet. I learned about the 3 color modes supported by the driver. Out of 12-bit, 16-bit and 18-bit, I picked 16-bit, because it’s an integer multiple of 8 bits - the only SPI transmission size supported by the ATmega. If there was an 8-bit option, I would’ve probably gone with that despite the low color count, but in the end I’m glad I couldn’t.&lt;/p&gt;
+
+&lt;p&gt;Finally I figured out the minimal startup sequence to get the display to show something:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;reset the IC by pulling &lt;em&gt;RESET&lt;/em&gt; low, waiting 1ms, pulling &lt;em&gt;RESET&lt;/em&gt; high and waiting 120ms (might not be strictly necessary, as the IC seems to have a defined power-on state)&lt;/li&gt;
+  &lt;li&gt;issue the &lt;em&gt;SLPOUT&lt;/em&gt; (exit sleep mode) command and wait for another 120ms&lt;/li&gt;
+  &lt;li&gt;issue the &lt;em&gt;DISPON&lt;/em&gt; (display on) command and wait for 1ms&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;div style=&quot;text-align: center; margin: 1em&quot;&gt;
+    &lt;img src=&quot;../../../images/2015-11-22-ili9163/IMG_0665.JPG&quot; width=&quot;60%&quot; /&gt;
+&lt;/div&gt;
+
+&lt;p&gt;At this point the display lit up, beautifully visualizing the beautiful garbage of an uninitialized RAM. Truly a sight to behold. The next steps to get something meaningful out to the screen, are:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;select 16-bit color mode using the &lt;em&gt;COLMOD&lt;/em&gt; command with 05h as its sole argument&lt;/li&gt;
+  &lt;li&gt;specify the area to draw into using &lt;em&gt;CASET&lt;/em&gt; and &lt;em&gt;PASET&lt;/em&gt; (also referred to by the datasheet as &lt;em&gt;RASET&lt;/em&gt; – talk about consistency!)&lt;/li&gt;
+  &lt;li&gt;issue a &lt;em&gt;RAMWR&lt;/em&gt; command and start pouring in the pixels (don’t forget to hold &lt;em&gt;D/CX&lt;/em&gt; high)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Note that there are no commands to draw graphical primitives - only “overwrite the specified rectangle with the following pixel data”.&lt;/p&gt;
+
+&lt;h1 id=&quot;blue-shift&quot;&gt;Blue shift&lt;/h1&gt;
+
+&lt;p&gt;When I drew a 100x100 square in the middle of the screen this way, I noticed that it was shifted up - the first 32 lines were skipped, and the visible 96 lines of the image were followed by random garbage. Offsetting all &lt;em&gt;PASET&lt;/em&gt; calls by 32 pixels did the trick - for now. Another thing I noticed was that the red and blue channels were swapped. After carefully comparing my SPI code with the datasheet, I concluded that the panel indeed uses the opposite channel ordering. Fortunately the driver has a command to remedy this; it’s called &lt;em&gt;MADCTL&lt;/em&gt; and it also allows you to flip the LCD horizontally and vertically - which rotates the image by 180 degrees and seems to solve the 32px offset issue. That is, until you try to use scrolling.&lt;/p&gt;
+
+&lt;p&gt;At this point I was able to consistently fill the screen with stuff and could as well shift my focus to other things. However, there was one other feature I wanted to explore…&lt;/p&gt;
+
+&lt;h1 id=&quot;the-elder-scroll&quot;&gt;The Elder Scroll&lt;/h1&gt;
+
+&lt;p&gt;When wading through the datasheet, I noticed references to horizontal and vertical scrolling. However, the horizontal scrolling bits are mere placeholders for unimplemented features. Vertical scrolling, on the other hand, is actually a thing and there are commands to set it up. The datasheet couldn’t be more ambiguous about those, and I was very confused about which part of RAM gets drawn where. In theory, you divide the screen into 3 vertical parts, called &lt;em&gt;Top Fixed Area&lt;/em&gt;, &lt;em&gt;Scroll Area&lt;/em&gt; and &lt;em&gt;Bottom Fixed Area&lt;/em&gt;. Using another command, you can change which line of &lt;em&gt;Scroll Area&lt;/em&gt; is drawn first and thereby scroll the picture.&lt;/p&gt;
+
+&lt;p&gt;When I naïvely tried to do exactly that, nothing happened at first. After some tinkering, I found out that the sum of heights of the 3 areas needed to be 160px – not 128px as one might expect. Still, with different scroll amounts the behavior wasn’t what I’d call consistent. With values less than 32, nothing happened at all. Because of the 32px shift, I also had to waste the top 32 lines of the framebuffer to make the Top Fixed Area visible on the screen.&lt;/p&gt;
+
+&lt;p&gt;At this point, I decided to look into the aforementioned Sumotoy’s library, hoping to find a solution. Soon I found out the reason for this madness. Apparently, the “red PCB” version of the LCD+driver combo is wired incorrectly, so the ILI9163C thinks it’s actually dealing with a 160x128 panel! This explains why some lines were missing and others were shifted. It also partially explains the weird scrolling behaviour. What seems to work is using &lt;em&gt;Scroll Area&lt;/em&gt; only and offsetting the scroll amount by 32. This has the benefit of allowing you to use 32 lines of off-screen buffer space to prepare sprites and text while scrolling. However, if you write code that relies on this, it will be incompatible with the “proper” version of the PCB (apparently the black one). Ugh.&lt;/p&gt;
+
+&lt;h1 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h1&gt;
+
+&lt;div style=&quot;float: right; margin: 0em 0em 1em 1em&quot;&gt;
+    &lt;img src=&quot;../../../images/2015-11-22-ili9163/IMG_0668.JPG&quot; width=&quot;255&quot; /&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It took about one afternoon to get this setup working. Thanks to Sumotoy’s library, I have a reference to check my code against when I run into issues.&lt;/p&gt;
+
+&lt;p&gt;The ILI9163C has many other features which I haven’t found the time to try out yet. If you have, please let us all know how it went - and how broken they are!&lt;/p&gt;
+
+&lt;p&gt;The code I’m using for driving this IC can be found &lt;a href=&quot;https://gist.github.com/mcejp/cbd817f96201bd960fbfdb2f96f522ac&quot;&gt;here&lt;/a&gt;. A good driver would be portable, universal, complete and optimized. This one is neither, as it’s tailored to my project and any optimization at this point would be premature. Still, I hope it might be of use to somebody. Alternatively, you can point at it and laugh.&lt;/p&gt;
+
+&lt;h2 id=&quot;some-more-things-to-explore&quot;&gt;Some more things to explore:&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;using software reset only, thereby saving one GPIO pin&lt;/li&gt;
+  &lt;li&gt;reading data from the Frame RAM – or rather reading anything at all&lt;/li&gt;
+  &lt;li&gt;how to do fast 3D graphics with an ATmega&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><summary type="html"></summary></entry></feed>
