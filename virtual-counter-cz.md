@@ -102,4 +102,4 @@ This ensures that the operating system will not attempt to use the device as a d
 
 - <a href="https://dspace.cvut.cz/handle/10467/68574">Bakalářská práce&ensp;<svg version="1.0" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 900 600"><rect width="900" height="600" fill="#d7141a"/><rect width="900" height="300" fill="#fff"/><path d="M 450,300 0,0 V 600 z" fill="#11457e"/></svg>
 - [Zdrojové kódy](https://github.com/mcejp/virtual-counter)
-- TODO
+- [Komunitní podpora](https://github.com/mcejp/virtual-counter/discussions)
