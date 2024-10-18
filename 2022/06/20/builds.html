@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Tracking FPGA design build metrics | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Tracking FPGA design build metrics" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="…with low infrastructure footprint" />
+<meta property="og:description" content="…with low infrastructure footprint" />
+<link rel="canonical" href="https://mcejp.github.io/2022/06/20/builds.html" />
+<meta property="og:url" content="https://mcejp.github.io/2022/06/20/builds.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-06-20T00:00:00+02:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Tracking FPGA design build metrics","dateModified":"2022-06-20T00:00:00+02:00","datePublished":"2022-06-20T00:00:00+02:00","description":"…with low infrastructure footprint","url":"https://mcejp.github.io/2022/06/20/builds.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2022/06/20/builds.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Tracking FPGA design build metrics</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2022-06-20T00:00:00+02:00" itemprop="datePublished">Jun 20, 2022
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h3 id="with-low-infrastructure-footprint">…with low infrastructure footprint</h3>
+
+<p><img src="../../../images/2022-06-20-builds/screenshot.png" alt="screenshot" /></p>
+
+<p>For my <a href="https://github.com/mcejp/Poly94">latest FPGA toy project</a>, I was looking for a way to have an overview of builds with performance metrics – f<sub>max</sub> and resource usage, but also results of simulation and benchmarks.</p>
+
+<p>GitLab CI has a convenient feature whereby one can specify a regular expression to extract test coverage from CI logs, and this value is then displayed on the job list page. Unfortunately it does not offer any flexibility beyond that.</p>
+
+<p>Despite searching far and wide, I didn’t find any satisfactory solution (at least not for free), so I set out to build my own.</p>
+
+<p>The rough idea was the following:</p>
+
+<ol>
+  <li>collect key metrics from CI jobs:
+    <ul>
+      <li>timing results</li>
+      <li>resource usage</li>
+      <li>test results under simulation</li>
+      <li>benchmarks under simulation</li>
+    </ul>
+  </li>
+  <li>accumulate data across builds</li>
+  <li>present in a spreadsheet for easy viewing</li>
+</ol>
+
+<p><img src="../../../images/2022-06-20-builds/diagram.png" alt="schematic" /></p>
+
+<p>Since I am already quite invested in GitLab CI, I wanted to maximally reuse the facilities it provides. However, to accumulate data across many builds, I still needed some kind of database. I opted for <a href="https://www.postgresql.org/">PostgreSQL</a>, motivated by the existence of <a href="https://supabase.com/">Supabase</a>, which provides a 500 MB cloud-hosted database for free. It doesn’t really matter, a private MariaDB or some NoSQL solution would do the job as well. The only requirement is reachability from the CI runners.</p>
+
+<p>The next question was one of the database schema. I decided to harcode only a few very general columns which might need to be indexed later, for purposes of filtering and sorting:</p>
+
+<ul>
+  <li>commit hash &amp; title</li>
+  <li>timestamps of commit + pipeline</li>
+  <li>CI pipeline URL</li>
+  <li>branch name</li>
+</ul>
+
+<p>The rest of the build data is shoved into a JSON object to allow maximum flexibility and easy schema evolution.</p>
+
+<p>To present the data, a final CI job generates a static, self-contained HTML page and deploys it via GitLab Pages. Simple!</p>
+
+<h2 id="implementation">Implementation</h2>
+
+<p>Let’s take a walk through the code now.</p>
+
+<h3 id="db-schema">DB schema</h3>
+
+<p>We start by creating a table. (Recall that <code class="highlighter-rouge">public</code> is the default schema in a new PostgreSQL database.)</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">public</span><span class="p">.</span><span class="n">builds</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="nb">serial</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">pipeline_timestamp</span> <span class="nb">timestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">pipeline_url</span> <span class="nb">varchar</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">branch</span> <span class="nb">varchar</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">commit_sha1</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">40</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">commit_timestamp</span> <span class="nb">timestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="nv">"attributes"</span> <span class="n">json</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">CONSTRAINT</span> <span class="n">builds_pk</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="configuring-the-jobs-to-always-save-artifacts">Configuring the jobs to always save artifacts</h3>
+
+<p>Builds may succeed or fail, but in any case, we want the logs to be saved for later processing. This applies to all build and simulation jobs.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">build_yosys</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span> <span class="s">...</span>
+
+  <span class="na">artifacts</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">build/nextpnr-report.json</span>
+      <span class="pi">-</span> <span class="s">ulx3s.bit</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">*.log"</span>
+    <span class="na">when</span><span class="pi">:</span> <span class="s">always</span>
+</code></pre></div></div>
+
+<p>Note that if an entry under <code class="highlighter-rouge">paths</code> fails refers to a non-existent file, GitLab Runner will complain a bit, but ultimately will go about its day, without triggering a job failure or skipping the remaining artifacts.</p>
+
+<h3 id="collecting-the-results">Collecting the results</h3>
+
+<p>The first custom job is tasked with collecting the results of all builds/tests, extracting key metrics, and storing them into the database.</p>
+
+<p>For this reason, it needs to depend on all the previous jobs and their artifacts.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">reports</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">upload</span>
+  <span class="na">needs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">job</span><span class="pi">:</span> <span class="s">build_ulx3s</span>
+    <span class="na">artifacts</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="pi">-</span> <span class="na">job</span><span class="pi">:</span> <span class="s">test_cocotb</span>
+    <span class="na">artifacts</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="pi">-</span> <span class="na">job</span><span class="pi">:</span> <span class="s">test_verilator</span>
+    <span class="na">artifacts</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">when</span><span class="pi">:</span> <span class="s">always</span>
+
+  <span class="na">image</span><span class="pi">:</span> <span class="s">python:3.10</span>
+
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">pip install junitparser "psycopg&gt;=3"</span>
+    <span class="pi">-</span> <span class="s">./tools/ci/save_build_stats.py</span>
+</code></pre></div></div>
+
+<p><a href="https://gitlab.com/mcejp/Poly94/-/blob/develop/tools/ci/save_build_stats.py">The body of this script is</a>, for the most part, unremarkable. We begin by preparing a dictionary and collecting the first pieces of metadata:</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">results</span><span class="p">[</span><span class="s">"commit_title"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TITLE"</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>The results extraction is mostly tool specific, so I will only reproduce one example here, which is that of parsing Cocotb results in JUnit format:</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">):</span>
+    <span class="n">xml</span> <span class="o">=</span> <span class="n">JUnitXml</span><span class="o">.</span><span class="n">fromfile</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">)</span>
+
+    <span class="n">failures</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">suite</span> <span class="ow">in</span> <span class="n">xml</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">case</span> <span class="ow">in</span> <span class="n">suite</span><span class="p">:</span>
+            <span class="c1"># Failures are reported by a &lt;failure /&gt; node under the test case,
+</span>            <span class="c1"># while passing tests don't carry any result at all.
+</span>            <span class="c1"># To be determined whether this is the JUnit convention,
+</span>            <span class="c1"># or a cocotb idiosyncrasy.
+</span>            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_tag</span> <span class="o">==</span> <span class="s">"failure"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">case</span><span class="o">.</span><span class="n">result</span><span class="p">):</span>
+                <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">case</span><span class="o">.</span><span class="n">classname</span> <span class="o">+</span> <span class="s">":"</span> <span class="o">+</span> <span class="n">case</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">results</span><span class="p">[</span><span class="s">"sim"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="s">"fail"</span><span class="p">,</span> <span class="n">failed_testcases</span><span class="o">=</span><span class="n">failures</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">results</span><span class="p">[</span><span class="s">"sim"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="s">"pass"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">results</span><span class="p">[</span><span class="s">"sim"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>   <span class="c1"># result unknown, maybe design failed to compile
+</span></code></pre></div></div>
+
+<p>Finally, we collect the indexable metadata and shove everything into the table:</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'INSERT INTO builds(pipeline_timestamp, pipeline_url, branch, '</span>
+                   <span class="s">'commit_sha1, commit_timestamp, "attributes") '</span>
+                   <span class="s">'VALUES (</span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s)'</span><span class="p">,</span> <span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_CREATED_AT"</span><span class="p">],</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_URL"</span><span class="p">],</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_BRANCH"</span><span class="p">],</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_SHA"</span><span class="p">],</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TIMESTAMP"</span><span class="p">],</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+
+<p>The environment variable <code class="highlighter-rouge">POSTGRES_CONN_STRING</code> must be defined in the project’s CI settings. Normally your database host will provide the connection string readily. It should follow this template: <code class="highlighter-rouge">postgresql://username:password@hostspec/dbname</code>. Don’t forget to include the password!</p>
+
+<h3 id="presentation">Presentation</h3>
+
+<p><a href="https://gitlab.com/mcejp/Poly94/-/blob/develop/tools/ci/present_build_stats.py">A second script</a> takes care of fetching all historical records and presenting them on a webpage.</p>
+
+<p>To deploy into GitLab pages the name of the job must be literally <code class="highlighter-rouge">pages</code> and it needs to upload a directory called <code class="highlighter-rouge">public</code> as artifact. Otherwise, the configuration is straightforward, it just needs to wait for the <code class="highlighter-rouge">reports</code> job to finish, in order to always work with the most up-to-date data.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">pages</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">upload</span>
+  <span class="na">needs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">reports</span><span class="pi">]</span>
+
+  <span class="na">image</span><span class="pi">:</span> <span class="s">python:3.10</span>
+
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">mkdir public</span>
+    <span class="pi">-</span> <span class="s">cd public</span>
+    <span class="pi">-</span> <span class="s">pip install Jinja2 "psycopg&gt;=3"</span>
+    <span class="pi">-</span> <span class="s">../tools/ci/present_build_stats.py</span>
+
+  <span class="na">artifacts</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">public</span>
+</code></pre></div></div>
+
+<p>The Python part starts by fetching all the DB records and passing them onto a <a href="https://gitlab.com/mcejp/Poly94/-/blob/develop/tools/ci/build_stats.html">Jinja template</a>.</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'SELECT id, pipeline_timestamp, pipeline_url, branch, commit_sha1, '</span>
+                   <span class="s">'commit_timestamp, "attributes" '</span>
+                   <span class="s">'FROM builds ORDER BY pipeline_timestamp DESC, id DESC'</span><span class="p">)</span>
+
+    <span class="n">builds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                   <span class="n">pipeline_timestamp</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                   <span class="n">pipeline_url</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                   <span class="n">branch</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                   <span class="n">commit_sha1</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+                   <span class="n">commit_timestamp</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+                   <span class="o">**</span><span class="n">row</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>   <span class="c1"># unpack all other attributes into the dictionary
+</span>                   <span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()]</span>
+
+<span class="n">env</span> <span class="o">=</span> <span class="n">jinja2</span><span class="o">.</span><span class="n">Environment</span><span class="p">(</span><span class="n">loader</span><span class="o">=</span><span class="n">jinja2</span><span class="o">.</span><span class="n">FileSystemLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)))</span>
+<span class="n">template</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="s">"build_stats.html"</span><span class="p">)</span>
+
+<span class="n">Path</span><span class="p">(</span><span class="s">"builds.html"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+    <span class="n">builds</span><span class="o">=</span><span class="n">builds</span><span class="p">,</span>
+    <span class="n">project_url</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PROJECT_URL"</span><span class="p">]</span>
+    <span class="p">))</span>
+</code></pre></div></div>
+
+<p><a href="https://mcejp.gitlab.io/Poly94/builds.html">Here</a> you can see the result live.</p>
+
+<p>For more flavor, we also generate some badges. The idea here is to generate a publicly accessible JSON file that can be fed into <a href="https://shields.io">shields.io</a> <em>Endpoint</em> mode.</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fmax_str</span> <span class="o">=</span> <span class="s">"</span><span class="si">%.1</span><span class="s">f MHz"</span> <span class="o">%</span> <span class="n">reference_build</span><span class="p">[</span><span class="s">"build"</span><span class="p">][</span><span class="s">"fmax"</span><span class="p">][</span><span class="n">reference_clk</span><span class="p">][</span><span class="s">"achieved"</span><span class="p">]</span>
+<span class="n">Path</span><span class="p">(</span><span class="s">"fmax.json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">schemaVersion</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                                             <span class="n">label</span><span class="o">=</span><span class="s">"Fmax"</span><span class="p">,</span>
+                                             <span class="n">message</span><span class="o">=</span><span class="n">fmax_str</span><span class="p">,</span>
+                                             <span class="n">color</span><span class="o">=</span><span class="s">"orange"</span><span class="p">)))</span>
+<span class="c1"># --&gt; render via https://img.shields.io/endpoint?url=https://MY_GITLAB_PAGES.io/fmax.json
+</span></code></pre></div></div>
+
+<p>This produces a static URL that can be added to the project website and the image will always reflect the result of the most recent build: <img src="../../../images/2022-06-20-builds/fmax-badge.svg" alt="Fmax badge" /></p>
+
+<p>Magic? No – <em>science</em>!</p>
+
+<h3 id="a-note-about-security">A note about security</h3>
+
+<p>The database connection string is supplied through an environment variable, which allows us to store it in the GitLab project with reasonable security – <a href="https://docs.gitlab.com/ee/ci/variables/#limit-the-environment-scope-of-a-cicd-variable">as long as an untrusted party cannot execute an <code class="highlighter-rouge">echo</code> command in our CI</a>. Admittedly, this is a weakness of the chosen approach. To allow secure collection of results from pipelines triggered by third parties (which includes all merge requests, for example), it would probably require a separate, trusted pipeline or some kind of scraper task running somewhere in the cloud.</p>
+
+<h3 id="scalability">Scalability</h3>
+
+<p>You might have noticed that there is no pagination mechanism; in fact, the presentation job has <em>O(n)</em> complexity with respect to the number of historic builds. This will not scale once there are hundreds and thousands of builds, and a more efficient approach will be required.</p>
+
+<p>The collection and presentation jobs also add some time to the overall runtime of the pipeline. Unfortunately, it seems that most of this time is just overhead of spinning the runner up, thus quite difficult to get rid of.</p>
+
+<h2 id="final-thoughs">Final thoughs</h2>
+
+<p>At this point, it might seem an logical next step to generalize the presented solution into something more flexible, an off-the-shelf tool that could suit other teams. For now, I have decided against that for reasons of complexity. In the world of build automation and complex FPGA designs, different projects have wildly different needs; and while a couple hard-coded scripts are easy to understand and maintain, a useful generic framework would need a lot of flexibility, thus incurring a high upfront cost in terms of complexity.</p>
+
+<p>Therefore, my recommendation would be that you just copy the code, and adapt it to your specific needs.</p>
+
+<p><strong>UPDATE (2023-11-01):</strong> Originally, the post recommended bit.io as the cloud Postgres database. Unfortunately, that service <a href="https://blog.bit.io/whats-next-for-bit-io-joining-databricks-ace9a40bce0d">shut down earlier in 2023</a>. Supabase seems like a competent alternative.</p>
+
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2022/06/20/builds.html';
+      this.page.identifier = 'https://mcejp.github.io/2022/06/20/builds.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2022/06/20/builds.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

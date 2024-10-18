@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>To LCD or not to LCD: befriending the ILI9163 | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="To LCD or not to LCD: befriending the ILI9163" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="https://mcejp.github.io/2015/11/22/ili9163.html" />
+<meta property="og:url" content="https://mcejp.github.io/2015/11/22/ili9163.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2015-11-22T00:00:00+01:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"To LCD or not to LCD: befriending the ILI9163","dateModified":"2015-11-22T00:00:00+01:00","datePublished":"2015-11-22T00:00:00+01:00","url":"https://mcejp.github.io/2015/11/22/ili9163.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2015/11/22/ili9163.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">To LCD or not to LCD: befriending the ILI9163</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2015-11-22T00:00:00+01:00" itemprop="datePublished">Nov 22, 2015
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <div style="float: right; margin: 0em 0em 1em 1em">
+    <img src="../../../images/2015-11-22-ili9163/IMG_0671.JPG" width="255" />
+</div>
+
+<p>In this first blog post, I’ll talk a bit about my experience with the very cheap 1.44” 128x128 LCD available from eBay (also marketed as “Nokia 5110 LCD”), as well as other similar sites, and interfacing it to an Arduino Pro Micro board, also available from eBay, using own hand-written assembly code.</p>
+
+<h1 id="gathering-intelligence">Gathering intelligence</h1>
+
+<p>The first thing you might notice about this product is that neither the product listing nor the actual PCB give any clue about how to talk to the display driver, or in fact, what kind of controller has been used at all. Fortunately, a simple Google query (I’ve found it very reliable to just search for <em>&lt;part name&gt; arduino</em> to learn about how to interface with something) revealed that the controller IC is an ILI9163C. <a href="https://github.com/sumotoy/TFT_ILI9163C">Sumotoy’s library</a> for interfacing the LCD from Arduino also turned up, but I decided not to use it for the time being and to roll my own code from scratch. In part because I had no interest in using the Arduino software framework in the final project and also because I saw this as an interesting little challenge.</p>
+
+<p>The nice thing about the ILI9163C is the fact that finding <a href="http://www.orientdisplay.com/pdf/ILI9163C.pdf">the datasheet</a> is trivial. The less nice thing is how bad the datasheet is. For a rather complex IC like this, the datasheet is poorly organized (there is no PDF index and the ToC lists all topics as being on page 4), often unclear and clunky, and contains tons of typos and copy-paste errors. Then again, for the price…</p>
+
+<p>In any case, it turns out that the IC supports several serial and parallel interfaces and the choice of which to use is left to the product designer (in this case author of the “red PCB”). It wasn’t hard to figure out which of the interfaces was used here and which pins in the datasheet correspond to the 8-pin header on the board.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>datasheet</th>
+      <th>LCD PCB</th>
+      <th>MCU</th>
+      <th>purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>–</td>
+      <td>LED</td>
+      <td>tied to 3.3 V</td>
+      <td>LCD backlight power supply; on-board 100R series resistor</td>
+    </tr>
+    <tr>
+      <td>SCL</td>
+      <td>SCK</td>
+      <td>SCK</td>
+      <td>SPI clock</td>
+    </tr>
+    <tr>
+      <td>SDA</td>
+      <td>SDA</td>
+      <td>MOSI</td>
+      <td>SPI data, half-duplex</td>
+    </tr>
+    <tr>
+      <td>WRX</td>
+      <td>A0</td>
+      <td>digital output</td>
+      <td>toggle between command (LOW) and data (HIGH) mode</td>
+    </tr>
+    <tr>
+      <td>RESX</td>
+      <td>RESET</td>
+      <td>digital output or tied high</td>
+      <td>pull low for HW reset</td>
+    </tr>
+    <tr>
+      <td>CSX</td>
+      <td>CS</td>
+      <td>digital output (or tied low ?)</td>
+      <td>pull low to initiate communication</td>
+    </tr>
+    <tr>
+      <td>–</td>
+      <td>GND</td>
+      <td>GND</td>
+      <td>common ground</td>
+    </tr>
+    <tr>
+      <td>–</td>
+      <td>VCC</td>
+      <td>tied to 3.3 V</td>
+      <td>supply power for LCD &amp; driver</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An important thing to note here: <strong>the driver IC only allows 3.3V on any of its pins and is not 5V-tolerant!</strong> If you hook it up directly (e.g. without using a level shifter) to your Arduino, you MUST NOT plug into USB or use an external power supply with the onboard 5V regulator. (I haven’t personally tested how quickly the IC gets damaged when subjected to such voltage, but decided not to push it)</p>
+
+<p>What I did is use an external <a href="http://www.ti.com/lit/ds/symlink/lm1117-n.pdf">3.3V linear regulator</a>, powered through USB from a different board, with its output hooked up to the “5V” pin on the Arduino. This meant that every time I wanted to reprogram the Arduino through USB, I had to pop it out of my breadboard. Slightly annoying, but acceptable.</p>
+
+<p>Out of laziness and to achieve maximum performance, I kept using the onboard 16 MHz oscillator even at this reduced operating voltage. I realize that this is out-of-spec for the ATmega32U4 and I won’t be surprised if it suddenly stops working one day, but so far I haven’t had any issues.</p>
+
+<h1 id="first-contact">First contact</h1>
+
+<div style="float: right; margin: 0em 0em 1em 1em">
+    <img src="../../../images/2015-11-22-ili9163/IMG_0658.JPG" width="255" />
+</div>
+
+<p>With the hardware set up, it was time to get into writing the software. My initial blind attempt to just pull the Data selection pin high and shove random data through SPI wasn’t met with success. Although I later found out that the SPI peripheral was never getting initialized because of a typo, this wouldn’t have worked anyways. Therefore I set on a painful journey through the datasheet. I learned about the 3 color modes supported by the driver. Out of 12-bit, 16-bit and 18-bit, I picked 16-bit, because it’s an integer multiple of 8 bits - the only SPI transmission size supported by the ATmega. If there was an 8-bit option, I would’ve probably gone with that despite the low color count, but in the end I’m glad I couldn’t.</p>
+
+<p>Finally I figured out the minimal startup sequence to get the display to show something:</p>
+
+<ol>
+  <li>reset the IC by pulling <em>RESET</em> low, waiting 1ms, pulling <em>RESET</em> high and waiting 120ms (might not be strictly necessary, as the IC seems to have a defined power-on state)</li>
+  <li>issue the <em>SLPOUT</em> (exit sleep mode) command and wait for another 120ms</li>
+  <li>issue the <em>DISPON</em> (display on) command and wait for 1ms</li>
+</ol>
+
+<div style="text-align: center; margin: 1em">
+    <img src="../../../images/2015-11-22-ili9163/IMG_0665.JPG" width="60%" />
+</div>
+
+<p>At this point the display lit up, beautifully visualizing the beautiful garbage of an uninitialized RAM. Truly a sight to behold. The next steps to get something meaningful out to the screen, are:</p>
+
+<ol>
+  <li>select 16-bit color mode using the <em>COLMOD</em> command with 05h as its sole argument</li>
+  <li>specify the area to draw into using <em>CASET</em> and <em>PASET</em> (also referred to by the datasheet as <em>RASET</em> – talk about consistency!)</li>
+  <li>issue a <em>RAMWR</em> command and start pouring in the pixels (don’t forget to hold <em>D/CX</em> high)</li>
+</ol>
+
+<p>Note that there are no commands to draw graphical primitives - only “overwrite the specified rectangle with the following pixel data”.</p>
+
+<h1 id="blue-shift">Blue shift</h1>
+
+<p>When I drew a 100x100 square in the middle of the screen this way, I noticed that it was shifted up - the first 32 lines were skipped, and the visible 96 lines of the image were followed by random garbage. Offsetting all <em>PASET</em> calls by 32 pixels did the trick - for now. Another thing I noticed was that the red and blue channels were swapped. After carefully comparing my SPI code with the datasheet, I concluded that the panel indeed uses the opposite channel ordering. Fortunately the driver has a command to remedy this; it’s called <em>MADCTL</em> and it also allows you to flip the LCD horizontally and vertically - which rotates the image by 180 degrees and seems to solve the 32px offset issue. That is, until you try to use scrolling.</p>
+
+<p>At this point I was able to consistently fill the screen with stuff and could as well shift my focus to other things. However, there was one other feature I wanted to explore…</p>
+
+<h1 id="the-elder-scroll">The Elder Scroll</h1>
+
+<p>When wading through the datasheet, I noticed references to horizontal and vertical scrolling. However, the horizontal scrolling bits are mere placeholders for unimplemented features. Vertical scrolling, on the other hand, is actually a thing and there are commands to set it up. The datasheet couldn’t be more ambiguous about those, and I was very confused about which part of RAM gets drawn where. In theory, you divide the screen into 3 vertical parts, called <em>Top Fixed Area</em>, <em>Scroll Area</em> and <em>Bottom Fixed Area</em>. Using another command, you can change which line of <em>Scroll Area</em> is drawn first and thereby scroll the picture.</p>
+
+<p>When I naïvely tried to do exactly that, nothing happened at first. After some tinkering, I found out that the sum of heights of the 3 areas needed to be 160px – not 128px as one might expect. Still, with different scroll amounts the behavior wasn’t what I’d call consistent. With values less than 32, nothing happened at all. Because of the 32px shift, I also had to waste the top 32 lines of the framebuffer to make the Top Fixed Area visible on the screen.</p>
+
+<p>At this point, I decided to look into the aforementioned Sumotoy’s library, hoping to find a solution. Soon I found out the reason for this madness. Apparently, the “red PCB” version of the LCD+driver combo is wired incorrectly, so the ILI9163C thinks it’s actually dealing with a 160x128 panel! This explains why some lines were missing and others were shifted. It also partially explains the weird scrolling behaviour. What seems to work is using <em>Scroll Area</em> only and offsetting the scroll amount by 32. This has the benefit of allowing you to use 32 lines of off-screen buffer space to prepare sprites and text while scrolling. However, if you write code that relies on this, it will be incompatible with the “proper” version of the PCB (apparently the black one). Ugh.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<div style="float: right; margin: 0em 0em 1em 1em">
+    <img src="../../../images/2015-11-22-ili9163/IMG_0668.JPG" width="255" />
+</div>
+
+<p>It took about one afternoon to get this setup working. Thanks to Sumotoy’s library, I have a reference to check my code against when I run into issues.</p>
+
+<p>The ILI9163C has many other features which I haven’t found the time to try out yet. If you have, please let us all know how it went - and how broken they are!</p>
+
+<p>The code I’m using for driving this IC can be found <a href="https://gist.github.com/mcejp/cbd817f96201bd960fbfdb2f96f522ac">here</a>. A good driver would be portable, universal, complete and optimized. This one is neither, as it’s tailored to my project and any optimization at this point would be premature. Still, I hope it might be of use to somebody. Alternatively, you can point at it and laugh.</p>
+
+<h2 id="some-more-things-to-explore">Some more things to explore:</h2>
+
+<ul>
+  <li>using software reset only, thereby saving one GPIO pin</li>
+  <li>reading data from the Frame RAM – or rather reading anything at all</li>
+  <li>how to do fast 3D graphics with an ATmega</li>
+</ul>
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2015/11/22/ili9163.html';
+      this.page.identifier = 'https://mcejp.github.io/2015/11/22/ili9163.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2015/11/22/ili9163.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

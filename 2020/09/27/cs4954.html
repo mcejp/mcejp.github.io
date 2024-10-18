@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Getting started with the CS4954 | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Getting started with the CS4954" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The CS4954 is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the CLONE BUINO DUAL to drive the composite video output." />
+<meta property="og:description" content="The CS4954 is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the CLONE BUINO DUAL to drive the composite video output." />
+<link rel="canonical" href="https://mcejp.github.io/2020/09/27/cs4954.html" />
+<meta property="og:url" content="https://mcejp.github.io/2020/09/27/cs4954.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-09-27T00:00:00+02:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Getting started with the CS4954","dateModified":"2020-09-27T00:00:00+02:00","datePublished":"2020-09-27T00:00:00+02:00","description":"The CS4954 is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the CLONE BUINO DUAL to drive the composite video output.","url":"https://mcejp.github.io/2020/09/27/cs4954.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2020/09/27/cs4954.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Getting started with the CS4954</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2020-09-27T00:00:00+02:00" itemprop="datePublished">Sep 27, 2020
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>The <a href="../../../images/cs4954/CS4954-55_F6-39674.pdf">CS4954</a> is a long-obsolete NTSC/PAL Digital Video Encoder by Cirrus Logic. Despite being out of production, it is a nice chip, and is being used on the <a href="https://hackaday.io/project/123606-clone-buino-dual">CLONE BUINO DUAL</a> to drive the composite video output.</p>
+
+<p><img src="../../../images/cs4954/cs4954-block.svg" alt="CS4954 block diagram" />
+<em><center>CS4954 block diagram, courtesy of Cirrus Logic. Out of its many inputs and outputs, we only care about a few, highlighted in bold.</center></em></p>
+
+<h2 id="hello-world">Hello world?</h2>
+
+<p>To get video output on the composite (CVBS) port with minimum effort, these are the steps to take:</p>
+
+<ul>
+  <li>Apply power to the chip</li>
+  <li>Provide 27MHz reference clock</li>
+  <li>Via I<sub>2</sub>C, change the following control flags (preserve the defaults for other flags and other registers):
+    <ul>
+      <li><strong>CONTROL_0</strong>: Set <em>MSTR=1</em> (Master Mode)</li>
+      <li><strong>CONTROL_4</strong>: Set <em>COMDAC_PD=0</em> (composite DAC: power up)</li>
+      <li><strong>CONTROL_5</strong>: Set <em>EN_COM=1, LOW_IMP=1</em> (enable composite DAC, enable composite output)</li>
+      <li><strong>CONTROL_3</strong>: Set <em>CBAR=1</em> (enable internal color bar generator)</li>
+    </ul>
+  </li>
+  <li>Note that the default output format is NTSC-M ITU-R.BT601. If this is not what you want, you can consult Table 4 of the datasheet which describes register configuration for other formats.</li>
+</ul>
+
+<p>Tip: you might want to make use of <a href="https://github.com/mcejp/cs4954/blob/master/cs4954.h">cs4954.h</a>.</p>
+
+<p>That should be enough to get you the familiar color bars:</p>
+
+<p><img src="../../../images/cs4954/screenshot.png" alt="screenshot" />
+<em><center>Here captured through a USB digitizer dongle</center></em></p>
+
+<p>Another thing to try is to set <em>CBAR=0</em> and then varying the <em>BKG_COLOR</em> register. You should get a screen filled with a solid color that changes accordingly. The <em>BKG_COLOR</em> register is encoded as a 3:3:2-bit RGB value, no need to worry about any YC<sub>b</sub>C<sub>r</sub> bullshit.</p>
+
+<p>Thanks to Master Mode, we don’t have to worry about providing any synchronization signals – everything is taken care of internally.</p>
+
+<h2 id="next-steps">Next steps</h2>
+
+<p>Color bars are a nice start, but what if we want to display our own picture? For this, we need to first gain understanding of the input format(s) understood by the video encoder. In fact, with the CS4954, we have 2 choices of input encoding:</p>
+
+<h3 id="itu-r-bt601-spec">ITU-R BT.601 (<a href="https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.601-7-201103-I!!PDF-E.pdf">spec</a>)</h3>
+
+<p>In this mode, the inputs go in as 8-bit words in the pattern C<sub>b</sub>–Y<sub>1</sub>–C<sub>r</sub>–Y<sub>2</sub>. This pattern repeats 360 times during the visible part of a scanline, yielding 720 pixels of luminance resolution and 360 pixels of chrominance resolution. This is also known as <a href="https://en.wikipedia.org/wiki/Chroma_subsampling#4:2:2">4:2:2 chroma subsampling</a>.</p>
+
+<p>Conversion between the RGB and YC<sub>b</sub>C<sub>r</sub> color spaces is conceptually simple, but requires matrix multiplication, which is not a problem on PC, but can be tricky or expensive in embedded systems. The coefficients can be found <a href="https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion">here</a>. Note the “interesting” ranges of values: 16–235 for Y, 16-240 for C<sub>b</sub> and C<sub>r</sub>. Legend says that these have something to do with analog representation of the signals and under/overshoot concerns.</p>
+
+<p>The CS4954 gives us a choice of a Master or a Slave mode. In Master mode, the chip generates HSYNC &amp; VSYNC signals and provides them as digital outputs; conversely, to use Slave Mode, HSYNC and VSYNC must be fed to the video encoder along with pixel data.</p>
+
+<h4 id="timing">Timing</h4>
+
+<p>In NTSC (interlaced) mode, a <em>frame</em> consists of 2 <em>fields</em>. You get 29.97 frames, so 59.94 fields per second. One frame consists of:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  3   blank lines      (  1..  3)
+  3   VSYNC lines      (  4..  6)
+ 15   blank lines      (  7.. 21)
+240   picture lines    ( 22..261)
+  4.5 blank lines      (262, 263, 264, 265 + 1st half of 266)
+  3   VSYNC lines      (middle of 266 .. middle of 269)
+ 15.5 blank lines      (2nd half of 269 + 270..284)
+240   picture lines    (285..524)
+  1   blank line       (525)
+</code></pre></div></div>
+
+<p>The numbers in brackets are 1-based and inclusive.</p>
+
+<p>As for horizontal timing:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> 128 HSYNC cycles    (   1.. 128)
+ 116 blank cycles    ( 129.. 244)
+1440 pixel cycles    ( 245..1684) encoding 720 horizontal pixels
+  32 blank cycles    (1685..1716)
+</code></pre></div></div>
+
+<p>A quick verification: 1716 * 525 * (30 / 1.001) = 27,000,000 cycles per second, which is exactly the reference frequency used by the CS4954.</p>
+
+<h3 id="itu-r-bt656-spec">ITU-R BT.656 (<a href="https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.656-5-200712-I!!PDF-E.pdf">spec</a>)</h3>
+
+<p>The BT.656 spec is freely available, but I found the wording just a little bit ambiguous. On the other hand, the application note from Intersil (<a href="../../../images/cs4954/8625.itu656.pdf">mirrored here</a>) is crystal clear and presents data in a format useful for encode implementation.</p>
+
+<p>BT.656 encodes pixel data in the same way as BT.601, but it also embeds synchronization in the data stream instead of requiring additional discrete signals. The vertical timing becomes much simpler, with no silly half-lines:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> 21 blank lines      (  1.. 21)
+240 picture lines    ( 22..261)
+ 23 blank lines      (262..284)
+240 picture lines    (285..524)
+  1 blank line       (525)
+</code></pre></div></div>
+
+<p>As for horizontal timing:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   4 EAV cycles      [FF, 00, 00, XY]
+ 268 dummy cycles    [80, 10, ...]
+   4 SAV cycles      [FF, 00, 00, XY]
+1440 pixel cycles    [Cb, Y1, Cr, Y2]
+</code></pre></div></div>
+
+<p>yielding the same grand total of 1716 cycles/line.</p>
+
+<p>The XY word is a bit more involved: from MSB to LSB its 8 bits read as <code class="highlighter-rouge">1FVHPPPP</code>. Fortunately, we can pretty much ignore the meaning of the individual bits, thanks to this handy decoding table:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: right">Line number, 1-based, inclusive</th>
+      <th style="text-align: right">F</th>
+      <th style="text-align: right">V</th>
+      <th style="text-align: right">H (EAV)</th>
+      <th style="text-align: right">H (SAV)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: right">1-3</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="text-align: right">4-20 <sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup></td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="text-align: right">21-263</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="text-align: right">264-265</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="text-align: right">266-282</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="text-align: right">283-525</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">0</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><em><center>Sanity-preserving table courtesy of Intersil engineers</center></em></p>
+
+<p>And what about <code class="highlighter-rouge">PPPP</code>? These bits encode 4-bit parity which <del>allows correction of any single-bit error</del> no one seems to care about, at least for inter-IC applications. Again, you can find more details in the Intersil application note.</p>
+
+<p>Since BT.656 mode needs 2 pins fewer than BT.601, it should be the more convenient way forward.</p>
+
+<p>This background should be enough to generate a valid BT.656 stream from our FPGA. Next time.</p>
+
+<h2 id="open-questions">Open questions</h2>
+
+<ol>
+  <li>Is there a drop-in replacement chip with better availability?</li>
+</ol>
+
+<h2 id="footnotes">Footnotes</h2>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:1">
+      <p>Beware that the BT.601 spec says that the odd-field vertical sync flag should last up to and including line 19, not 20. In practice, this difference does not seem to cause any issues; in fact, it seems that every revision of the standard changes this number somewhat randomly. <a href="#fnref:1" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2020/09/27/cs4954.html';
+      this.page.identifier = 'https://mcejp.github.io/2020/09/27/cs4954.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2020/09/27/cs4954.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

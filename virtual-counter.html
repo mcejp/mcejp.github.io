@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Reinventing The Wheel" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="https://mcejp.github.io/virtual-counter.html" />
+<meta property="og:url" content="https://mcejp.github.io/virtual-counter.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Reinventing The Wheel","url":"https://mcejp.github.io/virtual-counter.html","@type":"WebPage","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <h1 id="stm32-based-virtual-frequency-counter">STM32-based Virtual Frequency Counter</h1>
+
+<style>
+a.button, a.button:visited {
+    display: inline-block;
+    padding: 0.5em 1.2em;
+    text-align: left;
+    border-radius: 0.5em;
+
+    background: #1756a9;
+    color: #fff;
+}
+
+a.button:hover, a.button:active {
+    background: #3776c9;
+    color: #fff;
+
+    text-decoration: none;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 2em 0em 2em 0em;
+}
+
+.button hr {
+    margin: 0.3em 0em 0.3em 0em;
+}
+</style>
+
+<div style="text-align: center">
+<a href="https://github.com/mcejp/virtual-counter/releases/download/v21.02/virtual-counter-21.02.zip" class="button">
+<div style="display: flex; flex-direction: row; align-items: center">
+    <div style="margin-right: 1.5em">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" height="3.5em" viewBox="0 0 438.533 438.533" style="display: block; fill: #fff" xml:space="preserve"><g><path d="M409.133,109.203c-19.608-33.592-46.205-60.189-79.798-79.796C295.736,9.801,259.058,0,219.273,0 c-39.781,0-76.47,9.801-110.063,29.407c-33.595,19.604-60.192,46.201-79.8,79.796C9.801,142.8,0,179.489,0,219.267 c0,39.78,9.804,76.463,29.407,110.062c19.607,33.592,46.204,60.189,79.799,79.798c33.597,19.605,70.283,29.407,110.063,29.407 s76.47-9.802,110.065-29.407c33.593-19.602,60.189-46.206,79.795-79.798c19.603-33.596,29.403-70.284,29.403-110.062 C438.533,179.485,428.732,142.795,409.133,109.203z M353.742,297.208c-13.894,23.791-32.736,42.633-56.527,56.534 c-23.791,13.894-49.771,20.834-77.945,20.834c-28.167,0-54.149-6.94-77.943-20.834c-23.791-13.901-42.633-32.743-56.527-56.534 c-13.897-23.791-20.843-49.772-20.843-77.941c0-28.171,6.949-54.152,20.843-77.943c13.891-23.791,32.738-42.637,56.527-56.53 c23.791-13.895,49.772-20.84,77.943-20.84c28.173,0,54.154,6.945,77.945,20.84c23.791,13.894,42.634,32.739,56.527,56.53 c13.895,23.791,20.838,49.772,20.838,77.943C374.58,247.436,367.637,273.417,353.742,297.208z" /><path d="M310.633,219.267H255.82V118.763c0-2.666-0.862-4.853-2.573-6.567c-1.704-1.709-3.895-2.568-6.557-2.568h-54.823 c-2.664,0-4.854,0.859-6.567,2.568c-1.714,1.715-2.57,3.901-2.57,6.567v100.5h-54.819c-4.186,0-7.042,1.905-8.566,5.709 c-1.524,3.621-0.854,6.947,1.999,9.996l91.363,91.361c2.096,1.711,4.283,2.567,6.567,2.567c2.281,0,4.471-0.856,6.569-2.567 l91.077-91.073c1.902-2.283,2.851-4.576,2.851-6.852c0-2.662-0.855-4.853-2.573-6.57 C315.489,220.122,313.299,219.267,310.633,219.267z" /></g></svg>
+    </div>
+    <div>
+        <strong style="font-size: 130%">Download v21.02</strong>
+        <div>&ndash; Measurement Tool for Windows</div>
+        <div>&ndash; Firmware for supported platforms</div>
+    </div>
+</div>
+</a>
+</div>
+
+<p> </p>
+
+<p><img src="images/virtual-counter/screenshot.png" alt="screenshot" /></p>
+
+<hr />
+
+<h2 id="supported-hardware-platforms">Supported hardware platforms</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Microcontroller/kit</th>
+      <th>Firmware filename</th>
+      <th>Time base source</th>
+      <th>Wiring</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>STM32F042F6 (stand-alone)</td>
+      <td><code><nobr>fw-STM32F042F6-USB_CDC</nobr></code></td>
+      <td>internal HSI oscillator, continuously tuned from USB timing, or 8MHz crystal between pins 2, 3 (detected at start-up)</td>
+      <td><a href="virtual-counter-pinouts.html#stm32f042f6-stand-alone">here</a></td>
+    </tr>
+    <tr>
+      <td><a href="https://www.st.com/en/evaluation-tools/nucleo-f042k6.html">NUCLEO-F042K6</a></td>
+      <td><code><nobr>fw-STM32F042K6-VCP</nobr></code></td>
+      <td>internal HSI oscillator or 8MHz crystal between pins D7, D8 (detected at start-up)</td>
+      <td><a href="virtual-counter-pinouts.html#nucleo-f042k6">here</a></td>
+    </tr>
+    <tr>
+      <td><a href="https://www.st.com/en/evaluation-tools/nucleo-f303re.html">NUCLEO-F303RE</a></td>
+      <td><code><nobr>fw-STM32F303RE</nobr></code></td>
+      <td>on-board crystal</td>
+      <td><a href="virtual-counter-pinouts.html#nucleo-f303re">here</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The firmware is supplied in BIN, HEX and ELF formats.</p>
+
+<h2 id="supported-operating-systems">Supported operating systems</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>OS</th>
+      <th>Binary build provided</th>
+      <th>Driver installation necessary?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Windows 10</td>
+      <td>yes</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Windows Vista/7/8/8.1</td>
+      <td>yes</td>
+      <td>maybe (see below)</td>
+    </tr>
+    <tr>
+      <td>Windows XP</td>
+      <td>yes</td>
+      <td>yes (see below)</td>
+    </tr>
+    <tr>
+      <td>macOS 10.12 or later</td>
+      <td>no</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Linux 3.0 or later</td>
+      <td>no</td>
+      <td>none</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="installation-on-windows-vista7881">Installation on Windows Vista/7/8/8.1</h3>
+
+<p>Windows Vista should automatically install the required driver provided by STMicroelectronics through Windows Update.</p>
+
+<h3 id="installation-on-windows-xp">Installation on Windows XP</h3>
+
+<p>Windows XP doesn’t ship with a USB CDC driver. It is recommended to use the <a href="http://www.st.com/en/development-tools/stsw-stm32102.html">STM32 Virtual COM Port Driver</a>. After installing this package, the device should be recognized automatically.</p>
+
+<h3 id="installation-on-linux">Installation on Linux</h3>
+
+<p>No driver is required on Linux-based systems, however it may be necessary to add a <em>udev</em> rule to make the device accessible to non-root users.</p>
+
+<p>The location of <em>udev</em> configuration varies with distribution. For example, on Fedora 32 a file can be created at <code class="highlighter-rouge">/etc/udev/rules.d/99-virtualcounter.rules</code> with the following contents:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", \
+    ENV{ID_MM_DEVICE_IGNORE}="1", \
+    MODE:="0666"
+</code></pre></div></div>
+
+<p>This ensures that the operating system will not attempt to use the device as a data modem and that the device will be available to all users.</p>
+
+<h2 id="more-documentation">More documentation</h2>
+
+<ul>
+  <li><a href="https://dspace.cvut.cz/handle/10467/68574">Bachelor thesis <svg version="1.0" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 900 600"><rect width="900" height="600" fill="#d7141a"></rect><rect width="900" height="300" fill="#fff"></rect><path d="M 450,300 0,0 V 600 z" fill="#11457e"></path></svg></a></li>
+  <li><a href="https://github.com/mcejp/virtual-counter">Source code</a></li>
+  <li>TODO</li>
+</ul>
+
+<h2 id="credits">Credits</h2>
+
+<p><a href="https://freeicons.io/user-interface-icons-4/download-symbol-icon-36648">1</a></p>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

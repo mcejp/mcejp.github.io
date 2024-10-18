@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Generating core dumps for bare-metal AArch64 programs | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Generating core dumps for bare-metal AArch64 programs" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="https://mcejp.github.io/2023/07/30/aarch64-coredump.html" />
+<meta property="og:url" content="https://mcejp.github.io/2023/07/30/aarch64-coredump.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-07-30T00:00:00+02:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Generating core dumps for bare-metal AArch64 programs","dateModified":"2023-07-30T00:00:00+02:00","datePublished":"2023-07-30T00:00:00+02:00","description":"Introduction","url":"https://mcejp.github.io/2023/07/30/aarch64-coredump.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2023/07/30/aarch64-coredump.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Generating core dumps for bare-metal AArch64 programs</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2023-07-30T00:00:00+02:00" itemprop="datePublished">Jul 30, 2023
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h2 id="introduction">Introduction</h2>
+
+<p>Bare-metal 64-bit ARM programming is a strange niche: small, power-efficient microcontrollers usually implement the – considerably simpler – 32-bit version of the architecture. And on larger chips, one would typically run their application under a full-blown OS, namely Linux.
+Yet, there are cases where one needs the raw performance of an advanced 64-bit CPU, but a standard OS, despite all efforts to tune it, would bring in too much timing uncertainty for real-time process control.</p>
+
+<p>Welcome to CERN, where standard approaches don’t quite cut it, and <em>state of the art</em> is yesterday’s news. The FGC4, a new digital controller in development by the <a href="https://sy-dep-epc.web.cern.ch/">Electrical Power Converters</a> group has <a href="https://www.ipac23.org/preproc/pdf/WEPM080.pdf">exactly this kind of requirements</a>.</p>
+
+<p>Debugging these kinds of systems can be… <em>interesting</em>. There is a whole spectrum of mechanisms that one might have at their disposal, depending on choices made in the system design – from the simplicity of the blinking LED, the versatility of a serial output, to the sophistication of a JTAG adapter.
+But once the device is out in the field, you cannot guarantee to be present when an error occurs. The best you can do is to log it in the maximum detail possible, and attempt to understand the issue later.
+Fortunately, there is a standard mechanism for that – the core dump. Unfortunately, it is not readily available in environments like the one described in this post.</p>
+
+<h2 id="what-is-a-core-dump">What is a core dump?</h2>
+
+<p>A core dump is a snapshot of the state of a process, usually at the time it crashed.
+The idea is that you can take this snapshot, load it up in a debugger, and inspect the process as if the error had occurred just moments ago.
+The most precious piece of knowledge to recover is perhaps the stack trace; however, the ability to inspect the program’s variables can certainly be useful as well.</p>
+
+<p>Unfortunately, while a core dump is the de-facto standard way of capturing process state, its format is actually dependent on the host operating system (as is the case for executables).
+But on bare metal, there is no OS. No OS, no core dump – right?
+Well, consider this: what if we could <em>pretend</em> to be running an OS, and synthesize the core dump file accordingly?
+Then we could use all the standard tools to analyze it and extract useful information.</p>
+
+<h3 id="anatomy-of-a-core-dump">Anatomy of a core dump</h3>
+
+<p>Interestingly, on Linux the same ELF format used for executables and libraries is used as a container for the core dump.
+They even use the same <a href="http://blog.k3170makan.com/2018/09/introduction-to-elf-format-part-ii.html">program headers</a> to describe memory segments, although things begin to diverge beyond that.
+Before diving deeper into the specifics, let’s take a look at what such a dump contains:</p>
+
+<ol>
+  <li>A data structure giving basic information about the process, such as its PID or argument list</li>
+  <li>A snapshot of the process’ memory, including code, global variables, thread stacks and the heap</li>
+  <li>For each thread:
+    <ul>
+      <li>A structure giving basic information</li>
+      <li>A copy of the CPU state, including general-purpose and floating-point registers</li>
+    </ul>
+  </li>
+</ol>
+
+<p>For better illustration, let’s draw a comparison between a core dump and a standard executable. An ELF executable usually includes these sections:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">.text</code> (executable code)</li>
+  <li><code class="highlighter-rouge">.rodata</code> (read-only data)</li>
+  <li><code class="highlighter-rouge">.data</code> (initialized data)</li>
+  <li><code class="highlighter-rouge">.bss</code> (zero-initialized data); since the contents of this section are known to be all zeroes, it is not necessary to physically include them in the file</li>
+</ul>
+
+<p>When you use GDB to save a core dump, it will contain a copy of all of these, plus the program heap and stacks of all threads.</p>
+
+<figure>
+<p><img src="../../../images/2023/aarch64-coredump/executable-vs-coredump.png" alt="Screenshot" /></p>
+  <figcaption>Comparison of the memory sections between executables and core dumps – both in ELF format. Note that each file contains additional sections <em>not</em> corresponding to program memory</figcaption>
+</figure>
+
+<p>This has been a simplification, and to correctly synthesize a core dump, we have to be a bit more precise:
+The core dump will indeed contain a snapshot of memory corresponding to the sections mentioned above,
+however, this snapshot is described by one or more <code class="highlighter-rouge">PT_LOAD</code> segments rather than sections; names and other attributes of sections are therefore lost.
+This is not a problem, because we can extract section information from the original executable file.</p>
+
+<h4 id="process--thread-information">Process &amp; thread information</h4>
+
+<p>An ELF-encoded core dump also contains a <code class="highlighter-rouge">PT_NOTE</code> segment providing some general information about the process and its threads.</p>
+
+<figure>
+<p><img src="../../../images/2023/aarch64-coredump/pt_note.png" alt="Screenshot" /></p>
+  <figcaption>Structure of the <code class="highlighter-rouge">PT_NOTE</code> segment</figcaption>
+</figure>
+
+<h3 id="inspecting-a-core-dump">Inspecting a core dump</h3>
+
+<p>To extract useful information from a core dump, the original ELF file of the program is also required. This is because the core dump does not contain information about symbols, let alone mappings from compiled code to source locations.
+With a core file in hand, we can execute</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gdb program.elf core
+</code></pre></div></div>
+
+<p>This will start GDB, load the program ELF file and combine it with the information found in the core file.
+This article is not meant as a GDB tutorial, but in case you need a rundown, <a href="https://www.cse.unsw.edu.au/~learn/debugging/modules/gdb_coredumps/">this one</a> is quite nice.
+What matters to us here is the observation that information contained in the core dump is “overlaid” on top of the original executable.</p>
+
+<h2 id="writing-our-own">Writing our own</h2>
+
+<h3 id="impedance-mismatch">Impedance mismatch</h3>
+
+<p>There are some discrepancies between the Linux model and a bare-metal application.
+For example, there is no concept of Process ID or a command line. We also assume a single thread of execution.
+That might not always be the case; one might, for example, want to capture the state of a multi-threaded FreeRTOS application.</p>
+
+<p>Another difference is that of address spaces: Linux processes always execute in virtual memory, while a bare-metal program would use physical memory directly.
+In practice, it’s not really a problem. All that matters is that the addresses agree between the ELF of the program and the dumped image. As long as we do not move the program around when loading it, this will indeed be the case.</p>
+
+<h3 id="collecting-information">Collecting information</h3>
+
+<p>A core dump would usually be emitted in response to a program crash. Under an operating system with memory protection, it is well-defined what a program is allowed to do. On bare metal, the possibilities are much wider and there are footguns aplenty. Without going too much into detail, one symptom of a critical problem on AArch64 can be a <a href="https://developer.arm.com/documentation/den0024/a/AArch64-Exception-Handling/Synchronous-and-asynchronous-exceptions">Synchronous exception</a>. If the goal is to produce a dump, it is important to save <em>all</em> general-purpose registers (GPRs) on exception entry instead of just caller-saved ones, as is often done before calling an exception handler written in C/C++.
+You can see an example <a href="https://gist.github.com/mcejp/56c26608cf90e2120cdf887ea961b851">here</a>, but it will probably require adapting to your specific application.</p>
+
+<p>Besides the GPRs, we also need to gather the contents of floating-point registers, and finally, we need to know which region(s) of memory are relevant to the program.</p>
+
+<h3 id="writing-the-core-file">Writing the core file</h3>
+
+<p>With all the inputs on hand, we can move on to assembling the actual file.
+ELF is not the simplest format to write manually (without the use of any libraries), but in this case the structure will be simple enough. To begin, we need a copy of <a href="https://github.com/torvalds/linux/blob/master/include/uapi/linux/elf.h">elf.h</a> (careful about the license, though) to provide the structures and constants.
+A slight complication here lies in the fact that we have to precompute all the offsets and sizes. Let’s begin by visualizing the physical layout of the file we are going to write:</p>
+
+<figure>
+<p><img src="../../../images/2023/aarch64-coredump/physical-layout.png" alt="Screenshot" /></p>
+  <figcaption>Arrangement of data structures comprising the core file</figcaption>
+</figure>
+
+<p>First comes the ELF file header. Not much surprising here. Note the file type of <code class="highlighter-rouge">ET_CORE</code>.</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">FILE</span><span class="o">*</span> <span class="n">elf</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="s">"core"</span><span class="p">,</span> <span class="s">"wb"</span><span class="p">);</span>
+
+<span class="c1">// ELF header</span>
+<span class="n">Elf64_Ehdr</span> <span class="n">ehdr</span> <span class="p">{};</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFMAG0</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFMAG1</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFMAG2</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFMAG3</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFCLASS64</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ELFDATA2LSB</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ident</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>   <span class="o">=</span> <span class="n">EV_CURRENT</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_type</span>       <span class="o">=</span> <span class="n">ET_CORE</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_machine</span>    <span class="o">=</span> <span class="n">EM_AARCH64</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_version</span>    <span class="o">=</span> <span class="n">EV_CURRENT</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_phoff</span>      <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ehdr</span><span class="p">);</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_ehsize</span>     <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ehdr</span><span class="p">);</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_phentsize</span>  <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Phdr</span><span class="p">);</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_phnum</span>      <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+<span class="n">ehdr</span><span class="p">.</span><span class="n">e_shentsize</span>  <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Shdr</span><span class="p">);</span>
+<span class="n">fwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ehdr</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ehdr</span><span class="p">),</span> <span class="n">elf</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>Next, we will need to write two program headers: one for the memory snapshot (it can, in fact, come in multiple segments, but we’re keeping things simple) and one for the <code class="highlighter-rouge">PT_NOTE</code> segment described previously. Some complexity comes from the computation of the segment size and the need to align the snapshot to page size.</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Elf64_Phdr</span> <span class="n">phdr</span> <span class="p">{};</span>
+
+<span class="c1">// NOTE segment</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_type</span>     <span class="o">=</span> <span class="n">PT_NOTE</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_offset</span>   <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Ehdr</span><span class="p">)</span> <span class="o">+</span> <span class="n">ehdr</span><span class="p">.</span><span class="n">e_phnum</span> <span class="o">*</span> <span class="nf">sizeof</span><span class="p">(</span><span class="n">phdr</span><span class="p">);</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_filesz</span>   <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Nhdr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">elf_prpsinfo</span><span class="p">)</span> <span class="o">+</span>
+                  <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Nhdr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">elf_prstatus</span><span class="p">)</span> <span class="o">+</span>
+                  <span class="k">sizeof</span><span class="p">(</span><span class="n">Elf64_Nhdr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">elf_fpregset_t</span><span class="p">);</span>
+<span class="n">fwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="n">phdr</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">phdr</span><span class="p">),</span> <span class="n">elf</span><span class="p">);</span>
+
+<span class="c1">// LOAD segment (memory image)</span>
+<span class="c1">// First, compute alignment after previous segment</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_align</span>    <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>
+<span class="k">auto</span> <span class="n">note_align</span> <span class="o">=</span> <span class="n">phdr</span><span class="p">.</span><span class="n">p_align</span> <span class="o">-</span> <span class="p">((</span><span class="n">phdr</span><span class="p">.</span><span class="n">p_offset</span> <span class="o">+</span> <span class="n">phdr</span><span class="p">.</span><span class="n">p_filesz</span><span class="p">)</span> <span class="o">%</span> <span class="n">phdr</span><span class="p">.</span><span class="n">p_align</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">note_align</span> <span class="o">==</span> <span class="n">phdr</span><span class="p">.</span><span class="n">p_align</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">note_align</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_type</span>     <span class="o">=</span> <span class="n">PT_LOAD</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_flags</span>    <span class="o">=</span> <span class="n">PF_R</span> <span class="o">|</span> <span class="n">PF_X</span> <span class="o">|</span> <span class="n">PF_W</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_offset</span>  <span class="o">+=</span> <span class="n">phdr</span><span class="p">.</span><span class="n">p_filesz</span> <span class="o">+</span> <span class="n">note_align</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_vaddr</span>    <span class="o">=</span> <span class="n">MEMORY_SNAPSHOT_ADDR</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_paddr</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_filesz</span>   <span class="o">=</span> <span class="n">MEMORY_SNAPSHOT_SIZE</span><span class="p">;</span>
+<span class="n">phdr</span><span class="p">.</span><span class="n">p_memsz</span>    <span class="o">=</span> <span class="n">MEMORY_SNAPSHOT_SIZE</span><span class="p">;</span>
+<span class="n">fwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="n">phdr</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">phdr</span><span class="p">),</span> <span class="n">elf</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>We don’t need to write any sections, so after the program headers we immediately proceed with the note segment. The alignment/padding convention here justifies writing a couple of helper functions first:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">template</span><span class="o">&lt;</span><span class="kt">size_t</span> <span class="n">alignment</span><span class="o">&gt;</span>
+<span class="k">static</span> <span class="k">auto</span> <span class="nf">make_padding_span</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">length</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">static</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">byte</span> <span class="n">zeros</span><span class="p">[</span><span class="n">alignment</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">padding_needed</span> <span class="o">=</span> <span class="p">(</span><span class="n">length</span> <span class="o">%</span> <span class="n">alignment</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="p">(</span><span class="n">alignment</span> <span class="o">-</span> <span class="n">length</span> <span class="o">%</span> <span class="n">alignment</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="p">{</span><span class="n">zeros</span><span class="p">,</span> <span class="n">padding_needed</span><span class="p">};</span>
+<span class="p">}</span>
+
+<span class="k">static</span> <span class="kt">bool</span> <span class="nf">write_note</span><span class="p">(</span><span class="kt">FILE</span><span class="o">*</span> <span class="n">f</span><span class="p">,</span>
+                       <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">name</span><span class="p">,</span>
+                       <span class="n">Elf64_Word</span> <span class="n">type</span><span class="p">,</span>
+                       <span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">byte</span> <span class="k">const</span><span class="o">&gt;</span> <span class="n">desc</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">auto</span> <span class="n">terminated_name_len</span> <span class="o">=</span> <span class="n">strlen</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="k">auto</span> <span class="n">nhdr</span> <span class="o">=</span> <span class="n">Elf64_Nhdr</span> <span class="p">{</span> <span class="p">.</span><span class="n">n_namesz</span> <span class="o">=</span> <span class="p">(</span><span class="n">Elf64_Word</span><span class="p">)</span> <span class="n">terminated_name_len</span><span class="p">,</span>
+                             <span class="p">.</span><span class="n">n_descsz</span> <span class="o">=</span> <span class="p">(</span><span class="n">Elf64_Word</span><span class="p">)</span> <span class="n">desc</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span>
+                             <span class="p">.</span><span class="n">n_type</span> <span class="o">=</span> <span class="n">type</span> <span class="p">};</span>
+
+    <span class="k">auto</span> <span class="n">name_padding</span> <span class="o">=</span> <span class="n">make_padding_span</span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">(</span><span class="n">terminated_name_len</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">fwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="n">nhdr</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">nhdr</span><span class="p">),</span> <span class="n">f</span><span class="p">)</span> <span class="o">!=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">nhdr</span><span class="p">)</span>
+            <span class="o">||</span> <span class="n">fwrite</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">terminated_name_len</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="o">!=</span> <span class="n">terminated_name_len</span>
+            <span class="o">||</span> <span class="n">fwrite</span><span class="p">(</span><span class="n">name_padding</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">name_padding</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">f</span><span class="p">)</span> <span class="o">!=</span> <span class="n">name_padding</span><span class="p">.</span><span class="n">size</span><span class="p">()</span>
+            <span class="o">||</span> <span class="n">fwrite</span><span class="p">(</span><span class="n">desc</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">desc</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">f</span><span class="p">)</span> <span class="o">!=</span> <span class="n">desc</span><span class="p">.</span><span class="n">size</span><span class="p">())</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Now for the main show:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//  Process information (we leave most fields set to zero)</span>
+<span class="n">elf_prpsinfo</span> <span class="n">prpsinfo</span> <span class="p">{};</span>
+<span class="n">strncpy</span><span class="p">(</span><span class="n">prpsinfo</span><span class="p">.</span><span class="n">pr_psargs</span><span class="p">,</span> <span class="s">"bare-metal application"</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">prpsinfo</span><span class="p">.</span><span class="n">pr_psargs</span><span class="p">));</span>
+<span class="n">write_note</span><span class="p">(</span><span class="n">elf</span><span class="p">,</span> <span class="s">"CORE"</span><span class="p">,</span> <span class="n">NT_PRPSINFO</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">as_bytes</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="p">{</span><span class="o">&amp;</span><span class="n">prpsinfo</span><span class="p">,</span> <span class="mi">1</span><span class="p">}));</span>
+
+<span class="c1">// Thread status and integer registers</span>
+<span class="n">elf_prstatus</span> <span class="n">prstatus</span> <span class="p">{};</span>
+<span class="n">prstatus</span><span class="p">.</span><span class="n">pr_pid</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="n">memcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">prstatus</span><span class="p">.</span><span class="n">pr_reg</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">saved_gp_registers</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">saved_gp_registers</span><span class="p">));</span>
+<span class="n">write_note</span><span class="p">(</span><span class="n">elf</span><span class="p">,</span> <span class="s">"CORE"</span><span class="p">,</span> <span class="n">NT_PRSTATUS</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">as_bytes</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="p">{</span><span class="o">&amp;</span><span class="n">prstatus</span><span class="p">,</span> <span class="mi">1</span><span class="p">}));</span>
+
+<span class="c1">// FPU registers</span>
+<span class="n">write_note</span><span class="p">(</span><span class="n">elf</span><span class="p">,</span> <span class="s">"CORE"</span><span class="p">,</span> <span class="n">NT_FPREGSET</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">as_bytes</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="p">{</span><span class="o">&amp;</span><span class="n">saved_fp_registers</span><span class="p">,</span> <span class="mi">1</span><span class="p">}));</span>
+</code></pre></div></div>
+
+<p>Finally, write the memory image, respecting the alignment calculated earlier:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">note_align</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">char</span> <span class="n">scratch</span><span class="p">[</span><span class="n">note_align</span><span class="p">];</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">scratch</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">scratch</span><span class="p">));</span>
+    <span class="n">fwrite</span><span class="p">(</span><span class="n">scratch</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">scratch</span><span class="p">),</span> <span class="n">elf</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">fwrite</span><span class="p">((</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span> <span class="n">MEMORY_SNAPSHOT_ADDR</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">MEMORY_SNAPSHOT_SIZE</span><span class="p">,</span> <span class="n">elf</span><span class="p">);</span>
+</code></pre></div></div>
+<p>And that’s it! You can find the complete code <a href="https://gist.github.com/mcejp/2f6b4405589d6507a68eb893a8a6700d">in this Gist</a>.</p>
+
+<p>As for testing, here is a tip: GDB can be used to extract information from a core dump non-interactively – useful for unit tests, et cetera:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gdb --batch -n -ex bt &lt;program&gt; &lt;core&gt;
+
+warning: core file may not match specified executable file.
+[New LWP 1]
+Core was generated by `bare-metal application'.
+#0  0x0000000078020d8c in access_invalid_memory () at access_violation.cpp:8
+#1  0x0000000078020db0 in main (argc=&lt;optimized out&gt;, argv=&lt;optimized out&gt;) at access_violation.cpp:23
+Backtrace stopped: previous frame inner to this frame (corrupt stack?)
+</code></pre></div></div>
+
+<h2 id="see-also">See also</h2>
+
+<ul>
+  <li>Linux core dump <del>specification</del> haha! <a href="https://elixir.bootlin.com/linux/latest/source/fs/binfmt_elf.c">code</a></li>
+  <li><a href="https://github.com/anatol/google-coredumper">Google Coredumper</a></li>
+  <li><a href="https://refspecs.linuxfoundation.org/elf/elf.pdf">Executable and Linking Format (ELF) Specification</a></li>
+  <li><a href="https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst">ELF for the Arm® 64-bit Architecture (AArch64)</a></li>
+</ul>
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2023/07/30/aarch64-coredump.html';
+      this.page.identifier = 'https://mcejp.github.io/2023/07/30/aarch64-coredump.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2023/07/30/aarch64-coredump.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
