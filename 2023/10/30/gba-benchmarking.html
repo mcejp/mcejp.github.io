@@ -2,9 +2,9 @@
 <html lang="en"><head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
 <title>Automated benchmarking in GameBoy Advance homebrew | Reinventing The Wheel</title>
-<meta name="generator" content="Jekyll v4.0.0" />
+<meta name="generator" content="Jekyll v4.0.1" />
 <meta property="og:title" content="Automated benchmarking in GameBoy Advance homebrew" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must." />
@@ -14,9 +14,11 @@
 <meta property="og:site_name" content="Reinventing The Wheel" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2023-10-30T00:00:00+01:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Automated benchmarking in GameBoy Advance homebrew" />
 <meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
 <script type="application/ld+json">
-{"headline":"Automated benchmarking in GameBoy Advance homebrew","dateModified":"2023-10-30T00:00:00+01:00","datePublished":"2023-10-30T00:00:00+01:00","description":"The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must.","url":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html"},"@context":"https://schema.org"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2023-10-30T00:00:00+01:00","datePublished":"2023-10-30T00:00:00+01:00","description":"The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must.","headline":"Automated benchmarking in GameBoy Advance homebrew","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html"},"url":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css">
 
@@ -147,9 +149,9 @@ the <code class="highlighter-rouge">Stop</code> call (<code class="highlighter-r
 
 <p>A minimal, but complete example then looks like this:</p>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;tonc.h&gt;
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;tonc.h&gt;</span><span class="cp">
 </span>
-<span class="cp">#include "mgba/mgba.h"
+<span class="cp">#include</span> <span class="cpf">"mgba/mgba.h"</span><span class="cp">
 </span>
 <span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
     <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
@@ -313,23 +315,7 @@ these results in a database and track long-term trends, generate fancy badges an
 This time, it is left as an exercise to the reader :)</p>
 
 
-  </div><div id="disqus_thread"></div>
-  <script>
-    var disqus_config = function () {
-      this.page.url = 'https://mcejp.github.io/2023/10/30/gba-benchmarking.html';
-      this.page.identifier = 'https://mcejp.github.io/2023/10/30/gba-benchmarking.html';
-    };
-
-    (function() {
-      var d = document, s = d.createElement('script');
-
-      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
-
-      s.setAttribute('data-timestamp', +new Date());
-      (d.head || d.body).appendChild(s);
-    })();
-  </script>
-  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2023/10/30/gba-benchmarking.html" hidden></a>
+  </div><a class="u-url" href="/2023/10/30/gba-benchmarking.html" hidden></a>
 </article>
 
       </div>

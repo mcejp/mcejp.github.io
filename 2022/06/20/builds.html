@@ -2,9 +2,9 @@
 <html lang="en"><head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
 <title>Tracking FPGA design build metrics | Reinventing The Wheel</title>
-<meta name="generator" content="Jekyll v4.0.0" />
+<meta name="generator" content="Jekyll v4.0.1" />
 <meta property="og:title" content="Tracking FPGA design build metrics" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="…with low infrastructure footprint" />
@@ -14,9 +14,11 @@
 <meta property="og:site_name" content="Reinventing The Wheel" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2022-06-20T00:00:00+02:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Tracking FPGA design build metrics" />
 <meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
 <script type="application/ld+json">
-{"headline":"Tracking FPGA design build metrics","dateModified":"2022-06-20T00:00:00+02:00","datePublished":"2022-06-20T00:00:00+02:00","description":"…with low infrastructure footprint","url":"https://mcejp.github.io/2022/06/20/builds.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2022/06/20/builds.html"},"@context":"https://schema.org"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2022-06-20T00:00:00+02:00","datePublished":"2022-06-20T00:00:00+02:00","description":"…with low infrastructure footprint","headline":"Tracking FPGA design build metrics","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2022/06/20/builds.html"},"url":"https://mcejp.github.io/2022/06/20/builds.html"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css">
 
@@ -175,13 +177,13 @@ figure {
 <p><a href="https://gitlab.com/mcejp/Poly94/-/blob/develop/tools/ci/save_build_stats.py">The body of this script is</a>, for the most part, unremarkable. We begin by preparing a dictionary and collecting the first pieces of metadata:</p>
 
 <div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="n">results</span><span class="p">[</span><span class="s">"commit_title"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TITLE"</span><span class="p">]</span>
+<span class="n">results</span><span class="p">[</span><span class="s">"commit_title"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TITLE"</span><span class="p">]</span>
 </code></pre></div></div>
 
 <p>The results extraction is mostly tool specific, so I will only reproduce one example here, which is that of parsing Cocotb results in JUnit format:</p>
 
-<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">):</span>
-    <span class="n">xml</span> <span class="o">=</span> <span class="n">JUnitXml</span><span class="o">.</span><span class="n">fromfile</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">)</span>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">exists</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">):</span>
+    <span class="n">xml</span> <span class="o">=</span> <span class="n">JUnitXml</span><span class="p">.</span><span class="n">fromfile</span><span class="p">(</span><span class="s">"results.xml"</span><span class="p">)</span>
 
     <span class="n">failures</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -191,8 +193,8 @@ figure {
 </span>            <span class="c1"># while passing tests don't carry any result at all.
 </span>            <span class="c1"># To be determined whether this is the JUnit convention,
 </span>            <span class="c1"># or a cocotb idiosyncrasy.
-</span>            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_tag</span> <span class="o">==</span> <span class="s">"failure"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">case</span><span class="o">.</span><span class="n">result</span><span class="p">):</span>
-                <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">case</span><span class="o">.</span><span class="n">classname</span> <span class="o">+</span> <span class="s">":"</span> <span class="o">+</span> <span class="n">case</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span>            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">_tag</span> <span class="o">==</span> <span class="s">"failure"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">case</span><span class="p">.</span><span class="n">result</span><span class="p">):</span>
+                <span class="n">failures</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">case</span><span class="p">.</span><span class="n">classname</span> <span class="o">+</span> <span class="s">":"</span> <span class="o">+</span> <span class="n">case</span><span class="p">.</span><span class="n">name</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">results</span><span class="p">[</span><span class="s">"sim"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="s">"fail"</span><span class="p">,</span> <span class="n">failed_testcases</span><span class="o">=</span><span class="n">failures</span><span class="p">)</span>
@@ -204,17 +206,17 @@ figure {
 
 <p>Finally, we collect the indexable metadata and shove everything into the table:</p>
 
-<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
-    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'INSERT INTO builds(pipeline_timestamp, pipeline_url, branch, '</span>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="p">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'INSERT INTO builds(pipeline_timestamp, pipeline_url, branch, '</span>
                    <span class="s">'commit_sha1, commit_timestamp, "attributes") '</span>
-                   <span class="s">'VALUES (</span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s, </span><span class="si">%</span><span class="s">s)'</span><span class="p">,</span> <span class="p">(</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_CREATED_AT"</span><span class="p">],</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_URL"</span><span class="p">],</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_BRANCH"</span><span class="p">],</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_SHA"</span><span class="p">],</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TIMESTAMP"</span><span class="p">],</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+                   <span class="s">'VALUES (%s, %s, %s, %s, %s, %s)'</span><span class="p">,</span> <span class="p">(</span>
+        <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_CREATED_AT"</span><span class="p">],</span>
+        <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PIPELINE_URL"</span><span class="p">],</span>
+        <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_BRANCH"</span><span class="p">],</span>
+        <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_SHA"</span><span class="p">],</span>
+        <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_COMMIT_TIMESTAMP"</span><span class="p">],</span>
+        <span class="n">json</span><span class="p">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
     <span class="p">)</span>
 </code></pre></div></div>
 
@@ -245,9 +247,9 @@ figure {
 
 <p>The Python part starts by fetching all the DB records and passing them onto a <a href="https://gitlab.com/mcejp/Poly94/-/blob/develop/tools/ci/build_stats.html">Jinja template</a>.</p>
 
-<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
-    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'SELECT id, pipeline_timestamp, pipeline_url, branch, commit_sha1, '</span>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">psycopg</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"POSTGRES_CONN_STRING"</span><span class="p">])</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="p">.</span><span class="n">execute</span><span class="p">(</span><span class="s">'SELECT id, pipeline_timestamp, pipeline_url, branch, commit_sha1, '</span>
                    <span class="s">'commit_timestamp, "attributes" '</span>
                    <span class="s">'FROM builds ORDER BY pipeline_timestamp DESC, id DESC'</span><span class="p">)</span>
 
@@ -258,14 +260,14 @@ figure {
                    <span class="n">commit_sha1</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
                    <span class="n">commit_timestamp</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
                    <span class="o">**</span><span class="n">row</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>   <span class="c1"># unpack all other attributes into the dictionary
-</span>                   <span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()]</span>
+</span>                   <span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cursor</span><span class="p">.</span><span class="n">fetchall</span><span class="p">()]</span>
 
-<span class="n">env</span> <span class="o">=</span> <span class="n">jinja2</span><span class="o">.</span><span class="n">Environment</span><span class="p">(</span><span class="n">loader</span><span class="o">=</span><span class="n">jinja2</span><span class="o">.</span><span class="n">FileSystemLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)))</span>
-<span class="n">template</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="s">"build_stats.html"</span><span class="p">)</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">jinja2</span><span class="p">.</span><span class="n">Environment</span><span class="p">(</span><span class="n">loader</span><span class="o">=</span><span class="n">jinja2</span><span class="p">.</span><span class="n">FileSystemLoader</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)))</span>
+<span class="n">template</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="n">get_template</span><span class="p">(</span><span class="s">"build_stats.html"</span><span class="p">)</span>
 
-<span class="n">Path</span><span class="p">(</span><span class="s">"builds.html"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<span class="n">Path</span><span class="p">(</span><span class="s">"builds.html"</span><span class="p">).</span><span class="n">write_text</span><span class="p">(</span><span class="n">template</span><span class="p">.</span><span class="n">render</span><span class="p">(</span>
     <span class="n">builds</span><span class="o">=</span><span class="n">builds</span><span class="p">,</span>
-    <span class="n">project_url</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PROJECT_URL"</span><span class="p">]</span>
+    <span class="n">project_url</span><span class="o">=</span><span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="s">"CI_PROJECT_URL"</span><span class="p">]</span>
     <span class="p">))</span>
 </code></pre></div></div>
 
@@ -273,8 +275,8 @@ figure {
 
 <p>For more flavor, we also generate some badges. The idea here is to generate a publicly accessible JSON file that can be fed into <a href="https://shields.io">shields.io</a> <em>Endpoint</em> mode.</p>
 
-<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fmax_str</span> <span class="o">=</span> <span class="s">"</span><span class="si">%.1</span><span class="s">f MHz"</span> <span class="o">%</span> <span class="n">reference_build</span><span class="p">[</span><span class="s">"build"</span><span class="p">][</span><span class="s">"fmax"</span><span class="p">][</span><span class="n">reference_clk</span><span class="p">][</span><span class="s">"achieved"</span><span class="p">]</span>
-<span class="n">Path</span><span class="p">(</span><span class="s">"fmax.json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">schemaVersion</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fmax_str</span> <span class="o">=</span> <span class="s">"%.1f MHz"</span> <span class="o">%</span> <span class="n">reference_build</span><span class="p">[</span><span class="s">"build"</span><span class="p">][</span><span class="s">"fmax"</span><span class="p">][</span><span class="n">reference_clk</span><span class="p">][</span><span class="s">"achieved"</span><span class="p">]</span>
+<span class="n">Path</span><span class="p">(</span><span class="s">"fmax.json"</span><span class="p">).</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">schemaVersion</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                                              <span class="n">label</span><span class="o">=</span><span class="s">"Fmax"</span><span class="p">,</span>
                                              <span class="n">message</span><span class="o">=</span><span class="n">fmax_str</span><span class="p">,</span>
                                              <span class="n">color</span><span class="o">=</span><span class="s">"orange"</span><span class="p">)))</span>
@@ -304,23 +306,7 @@ figure {
 <p><strong>UPDATE (2023-11-01):</strong> Originally, the post recommended bit.io as the cloud Postgres database. Unfortunately, that service <a href="https://blog.bit.io/whats-next-for-bit-io-joining-databricks-ace9a40bce0d">shut down earlier in 2023</a>. Supabase seems like a competent alternative.</p>
 
 
-  </div><div id="disqus_thread"></div>
-  <script>
-    var disqus_config = function () {
-      this.page.url = 'https://mcejp.github.io/2022/06/20/builds.html';
-      this.page.identifier = 'https://mcejp.github.io/2022/06/20/builds.html';
-    };
-
-    (function() {
-      var d = document, s = d.createElement('script');
-
-      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
-
-      s.setAttribute('data-timestamp', +new Date());
-      (d.head || d.body).appendChild(s);
-    })();
-  </script>
-  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2022/06/20/builds.html" hidden></a>
+  </div><a class="u-url" href="/2022/06/20/builds.html" hidden></a>
 </article>
 
       </div>
