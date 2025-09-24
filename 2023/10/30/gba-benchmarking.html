@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Automated benchmarking in GameBoy Advance homebrew | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Automated benchmarking in GameBoy Advance homebrew" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must." />
+<meta property="og:description" content="The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must." />
+<link rel="canonical" href="https://mcejp.github.io/2023/10/30/gba-benchmarking.html" />
+<meta property="og:url" content="https://mcejp.github.io/2023/10/30/gba-benchmarking.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-10-30T00:00:00+01:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Automated benchmarking in GameBoy Advance homebrew","dateModified":"2023-10-30T00:00:00+01:00","datePublished":"2023-10-30T00:00:00+01:00","description":"The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly – a single 32-bit CPU, no OS, no built-in wireless features – but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools like C++20 and CMake (or Rust). Still, it is not particularly powerful in terms of raw computation and when writing rendering code, even a simple ray-caster, some way of benchmarking the performance is essentially a must.","url":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2023/10/30/gba-benchmarking.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Automated benchmarking in GameBoy Advance homebrew</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2023-10-30T00:00:00+01:00" itemprop="datePublished">Oct 30, 2023
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>The GBA is a delightful platform to develop for. It is straightforward enough to understand thoroughly
+– a single 32-bit CPU, no OS, no built-in wireless features –
+but also sufficiently advanced to allow an ergonomic workflow based on modern languages and tools
+like C++20 and CMake (or Rust).
+Still, it is not particularly powerful in terms of raw computation and when writing rendering
+code, even a simple ray-caster, some way of benchmarking the performance is essentially a must.</p>
+
+<figure>
+<p><img src="../../../images/2023/gba-benchmarking/raycaster.png" alt="Screenshot of an untextured raycaster" /></p>
+</figure>
+
+<p>It is, of course, possible to add FPS (or better, cycle) counters on the screen and
+check them after every code change, but we seek a more rigorous approach.
+It should be completely automatic, so that it is trivial to execute both locally and in a CI pipeline.</p>
+
+<p>Here is the rough idea:</p>
+
+<ol>
+  <li>Implement benchmarking in the game, using hardware resources built into the GBA.
+In my project I am using the TONC library which provides
+<a href="https://www.coranac.com/man/tonclib/group__grpTimer.htm">rudimentary cycle counting</a> using GBA Timers 2 &amp; 3 in a cascade mode.</li>
+  <li>(optional) Record a sequence of inputs to replay during the benchmark, to move around 
+the scene and get more statistically relevant results.</li>
+  <li>Execute a GBA emulator in headless mode (no GUI) and have it output the measured
+performance metrics.</li>
+  <li>Capture this output for further processing.</li>
+</ol>
+
+<p>This leaves me with 2 problems to solve: find a cycle-accurate emulator that can
+run headless and somehow exfiltrate the measurements from the emulated console.</p>
+
+<p>It turns out that the GBA’s <em>SIO</em> peripheral supports an <a href="https://problemkaputt.de/gbatek.htm#siouartmode">UART mode</a>,
+which in essence means very simple character output.
+Perfect, now just to find an emulator that can forward the UART to the host operating
+system.</p>
+
+<h3 id="mgba">mGBA</h3>
+
+<p>As of writing, <a href="https://mgba.io">mGBA</a> is the only GBA emulator “confidently recommended” by the
+<a href="https://emulation.gametechwiki.com/index.php/Game_Boy_Advance_emulators">Emulation General Wiki</a>.
+Not to imply that this is somehow the authoritative source on all things emulation,
+but I have gotten good advice from it in the past.
+mGBA is being actively developed and it’s <a href="https://mgba.io/2014/12/28/classic-nes/">technical blog</a> provides some
+excellent reading.
+Does it fit the bill, though?</p>
+
+<p>mGBA implements <a href="https://mgba.io/docs/scripting.html">Lua scripting support</a> that allows to introspect
+the emulated system rather deeply.
+Unfortunately, it <a href="https://github.com/mgba-emu/mgba/issues/3053">does not implement</a> UART mode.
+However, there is an alternative – albeit non-standard – way to get stuff out of the
+emulator.
+This mechanism consists of several I/O registers in the 0x04FFxxxx address space of the
+emulated system.
+Through these registers, the ROM has access to the emulator’s own logging facilities.</p>
+
+<p>mGBA comes with <a href="https://github.com/mgba-emu/mgba/blob/0.10.2/opt/libgba/mgba.c">example code for using these</a>, assuming a libgba runtime.
+As mentioned earlier, my project is based on TONC;
+fortunately, porting the example code is trivial – in mgba.c,
+<code class="highlighter-rouge">#include &lt;gba_types.h&gt;</code> just needs to be changed to <code class="highlighter-rouge">#include &lt;tonc_types.h&gt;</code>.</p>
+
+<p>Next, I was looking for a way to run mGBA headless and for a limited duration.
+At first it looked like some level of source code hackery would be necessary,
+but then I discovered one of the built-in test utilities, <em>mgba-rom-test</em>.
+It can execute  a ROM, without any user interface, and while it cannot be told to quit
+after a fixed interval of time (like <em>mgba-perf</em> can),
+it can exit once the game calls an SWI specified by the user.</p>
+
+<p>Calls a <em>what</em>? SWI (software interrupt) instructions are normally used to invoke
+<a href="https://problemkaputt.de/gbatek.htm#biosfunctions">functions built into the GBA BIOS</a>;
+we can therefore either re-purpose a function that would never be used during the benchmark,
+or find an unallocated SWI number to claim for our purposes.
+In absence of convincing reasons for either option, I went with the former, appropriating
+the <code class="highlighter-rouge">Stop</code> call (<code class="highlighter-rouge">swi 0x03</code>).</p>
+
+<h3 id="putting-it-together">Putting it together</h3>
+
+<p>A minimal, but complete example then looks like this:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;tonc.h&gt;
+</span>
+<span class="cp">#include "mgba/mgba.h"
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+
+    <span class="n">mgba_open</span><span class="p">();</span>
+
+    <span class="n">profile_start</span><span class="p">();</span>
+
+    <span class="c1">// waste some time</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">Div</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="n">uint</span> <span class="n">duration</span> <span class="o">=</span> <span class="n">profile_stop</span><span class="p">();</span>
+    <span class="n">mgba_printf</span><span class="p">(</span><span class="n">MGBA_LOG_INFO</span><span class="p">,</span> <span class="s">"BENCHMARK: %d cycles"</span><span class="p">,</span> <span class="n">duration</span><span class="p">);</span>
+
+    <span class="n">Stop</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The <em>mgba-rom-test</em> executable is not distributed with mGBA releases, in fact, it is not even
+compiled by default. We will need to build mGBA from source with some custom flags.
+Since we don’t care about GUI or fancy features, we can use additional options to minimize
+the build time and dependencies.
+The following configuration worked well for me:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ cmake -DBUILD_QT=OFF \
+        -DBUILD_ROM_TEST=ON \             &lt;-- secret sauce
+        -DBUILD_SDL=OFF \
+        -DUSE_EDITLINE=OFF \
+        -DUSE_ELF=OFF \
+        -DUSE_EPOXY=OFF \
+        -DUSE_FFMPEG=OFF \
+        -DUSE_LIBZIP=OFF \
+        -DUSE_USE_MINIZIP=OFF \
+        -DUSE_PNG=OFF \
+        -DUSE_SQLITE3=OFF \
+        -DUSE_ZLIB=OFF \
+        -G Ninja ..
+
+$ ninja mgba-rom-test
+</code></pre></div></div>
+
+<p>If everything goes well, we run it like this:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ ./test/mgba-rom-test -S 0x03 --log-level 15 /path/to/ROM.gba
+GBA Debug: BENCHMARK: 1751 cycles
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">--log-level</code> is a bit field whose documentation leaves it rather mysterious, but it seems
+to correspond to <a href="https://github.com/mgba-emu/mgba/blob/0.10.2/include/mgba/core/log.h#L15"><code class="highlighter-rouge">enum mLogLevel</code></a> in the code base.
+A value of 15, or 0x0F, then corresponds to all levels from FATAL down to INFO, but excluding
+DEBUG and lower.
+Without the flag, mGBA’s implementation of the GBA BIOS emits a message every time a BIOS
+function is used, which can be annoying.</p>
+
+<h3 id="multiple-scenarios">Multiple scenarios</h3>
+
+<p>At the beginning I alluded to recording inputs for later playback.
+It doesn’t seem to be implemented as a native feature of mGBA at this time, so let’s come
+back to this topic in the future.</p>
+
+<p>Let’s start with a presumably easier problem, which is how to select one out of multiple
+test scenarios to execute.
+There exists a trivial solution which is to use compile-time flags and build a number of
+different ROMs, one per scenario.
+That feels rather wasteful, and a potential nightmare to manage as the number of tests cases
+goes up.
+Can we, instead, bake everything into a single ROM and make the choice at runtime?</p>
+
+<p>Having previously solve the problem of <em>extracting</em> data from mGBA, let’s now look at the ways
+to <em>inject</em> data at the start.
+A cursory glance reveals a number of entry vectors:</p>
+
+<ul>
+  <li>the ROM file itself</li>
+  <li>the built-in command-line debugger (<code class="highlighter-rouge">-d</code>)</li>
+  <li>the built-in GDB (<code class="highlighter-rouge">-g</code>)</li>
+  <li>IPS patches (<code class="highlighter-rouge">-p</code>)</li>
+  <li>Lua scripts</li>
+  <li>save states (<code class="highlighter-rouge">-t</code>)</li>
+  <li>cheat codes (<code class="highlighter-rouge">-c</code>)</li>
+</ul>
+
+<p>Some of these are out – for example, the scripting engine is not accessible in <code class="highlighter-rouge">mgba-rom-test</code>.
+Patching a fixed address inside the ROM is always an option, but let’s look for something more
+elegant.
+Save states are very powerful, but they use a proprietary binary format, which might even
+change between versions of the emulator.</p>
+
+<p>What about cheat codes? They operate on the principle of hooking the game code and allowing
+pretty much arbitrary memory modifications. That sounds interesting, to say the least!</p>
+
+<figure>
+<p><img src="../../../images/2023/gba-benchmarking/gameshark.jpg" alt="Photo" /></p>
+  <figcaption>GameShark for Game Boy Advance</figcaption>
+</figure>
+
+<p>Of course, things cannot be <em>too</em> simple. The cheat devices for the GBA are a mess, with the
+most famous ones (Action Replay and GameShark Advance) <a href="https://wunkolo.tumblr.com/post/144418662792">encrypting their codes</a>.
+While the encryption has been broken open years ago, it would be preferable to avoid such
+a complication altogether.
+There is <a href="https://doc.kodewerx.org/hacking_gba.html#cba">Codebreaker, where encryption is optional</a>.
+Finally, mGBA supports a “VBA” cheat file format (presumably pioneered by VisualBoyAdvance),
+which is the most straightforward of all: it’s just a list of address-value pairs.</p>
+
+<p>In order to do their dirty work, the classic cheat devices work by hooking the game code
+and hijacking a suitable branch instruction,
+whose address is encoded as part of the cheat “master code”.
+With VBA cheats, this is not necessary; the memory modifications are applied at the end of each
+emulated frame.
+This has the downside that the game has to wait for one frame to pass before checking the memory
+location (~5 extra lines of code including clean-up).
+It still seems like a better trade-off than having to look for a Thumb branch instruction that
+is on the main code path and guaranteed to be stable across builds.</p>
+
+<p>Having sorted out the mechanism, we still need a place to put our magic cookie.
+For a proof of concept, let’s just put it at the very end of EWRAM, which spans the 256 KiB from
+0x0200 0000 to 0x0203 FFFF.
+The linker script should ideally be adjusted to make sure that the compiler will not interfere
+with our chosen special location.</p>
+
+<p>The cheat file itself then boils down to a single line:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0203FFFE:beef
+</code></pre></div></div>
+
+<p>And reading the value from inside is straightforward, too:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// wait for 1 frame to pass</span>
+<span class="n">irq_init</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+<span class="n">irq_enable</span><span class="p">(</span><span class="n">II_VBLANK</span><span class="p">);</span>
+<span class="n">VBlankIntrWait</span><span class="p">();</span>
+
+<span class="n">mgba_printf</span><span class="p">(</span><span class="n">MGBA_LOG_INFO</span><span class="p">,</span> <span class="s">"Requested test case: %04Xh"</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="n">u16</span><span class="o">*</span><span class="p">)</span><span class="mh">0x0203FFFE</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>Let’s see it in action:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$  ./test/mgba-rom-test -S 0x03 --cheats cheatfile.txt --log-level 15 /path/to/ROM.gba
+GBA Debug: Requested test case: BEEFh
+GBA Debug: BENCHMARK: 1751 cycles
+</code></pre></div></div>
+
+<h3 id="gitlab-ci">GitLab CI</h3>
+
+<figure>
+<p><img src="../../../images/2023/gba-benchmarking/pipeline.png" alt="CI pipeline with 'build' and 'test' steps" /></p>
+</figure>
+
+<p>We can now take it one step further, and have the benchmark run automatically in a CI pipeline.
+It makes sense to separate the ROM build step from the benchmarking step,
+since the former needs the GBA toolchain to build, while the latter builds mGBA for the host
+platform (or whatever container image we run it in),
+before executing the test proper.
+The complete example is a bit too long to reproduce here in full, but you can 
+<a href="https://gitlab.com/mcejp/tonc-mgba-ci-demo/-/blob/master/.gitlab-ci.yml">check it out here</a>.</p>
+
+<p>In <a href="/2022/06/20/builds.html">a previous post</a>, I have shown how you could accumulate
+these results in a database and track long-term trends, generate fancy badges and so on.
+This time, it is left as an exercise to the reader :)</p>
+
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2023/10/30/gba-benchmarking.html';
+      this.page.identifier = 'https://mcejp.github.io/2023/10/30/gba-benchmarking.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2023/10/30/gba-benchmarking.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

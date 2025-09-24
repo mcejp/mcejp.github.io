@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Building an Open Watcom Linux-to-DOS cross-compiler | Reinventing The Wheel</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Building an Open Watcom Linux-to-DOS cross-compiler" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Nowadays, Open Watcom v2 seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux." />
+<meta property="og:description" content="Nowadays, Open Watcom v2 seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux." />
+<link rel="canonical" href="https://mcejp.github.io/2021/02/03/open-watcom.html" />
+<meta property="og:url" content="https://mcejp.github.io/2021/02/03/open-watcom.html" />
+<meta property="og:site_name" content="Reinventing The Wheel" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-02-03T00:00:00+01:00" />
+<meta name="google-site-verification" content="JOlCKkn8yOlvsLYgMzmFCaFD9zblZJhVasBwwEXjYYs" />
+<script type="application/ld+json">
+{"headline":"Building an Open Watcom Linux-to-DOS cross-compiler","dateModified":"2021-02-03T00:00:00+01:00","datePublished":"2021-02-03T00:00:00+01:00","description":"Nowadays, Open Watcom v2 seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux.","url":"https://mcejp.github.io/2021/02/03/open-watcom.html","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://mcejp.github.io/2021/02/03/open-watcom.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link type="application/atom+xml" rel="alternate" href="https://mcejp.github.io/feed.xml" title="Reinventing The Wheel" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Reinventing The Wheel</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <script type="text/javascript">
+MathJax = {
+    // options: {
+    //      enableMenu: false,
+    // },
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+    },
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+figure {
+  text-align: center;
+}
+</style>
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Building an Open Watcom Linux-to-DOS cross-compiler</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2021-02-03T00:00:00+01:00" itemprop="datePublished">Feb 3, 2021
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>Nowadays, <a href="https://github.com/open-watcom/open-watcom-v2">Open Watcom v2</a> seems to be the go-to free software compiler for 16-bit DOS. It can run on DOS natively, but you can also cross-compile from modern operating systems, including 64-bit Linux.</p>
+
+<p>Although there is an official <a href="https://github.com/open-watcom/open-watcom-v2/wiki/Build">Wiki</a> about building the toolchain, to me it reads more like a reference for those already in the know (and it’s a lot of words anyway!)</p>
+
+<p>Below I reproduce just the steps I had to take to get a fully working toolchain.</p>
+
+<ol>
+  <li><code class="highlighter-rouge">git clone git@github.com:open-watcom/open-watcom-v2.git</code>, <code class="highlighter-rouge">cd open-watcom-v2</code></li>
+  <li>in <em>setvars.sh</em>, I uncommented <code class="highlighter-rouge">export OWDOSBOX=dosbox</code>, since I already had DOSBox installed</li>
+  <li><code class="highlighter-rouge">source setvars.sh</code></li>
+  <li><code class="highlighter-rouge">./buildrel.sh</code></li>
+</ol>
+
+<p>This will use your system GCC to build the Open Watcom toolchain (for all possible hosts &amp; targets).</p>
+
+<p>Assuming everything went fine, to use the newly-build compiler, some environment variables need to be configured – unlike GCC, where it usually suffices to have it in <code class="highlighter-rouge">PATH</code>.</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">WATCOM</span><span class="o">=</span><span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/rel
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="nv">$WATCOM</span>/binl64:<span class="nv">$WATCOM</span>/binl:<span class="nv">$PATH</span>
+<span class="nb">export </span><span class="nv">INCLUDE</span><span class="o">=</span><span class="nv">$WATCOM</span>/h
+</code></pre></div></div>
+
+<p>Let’s see if we can compile a minimal program…</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>wcl <span class="nt">-bt</span><span class="o">=</span>dos <span class="nv">$WATCOM</span>/src/hello.c
+</code></pre></div></div>
+
+<p>…and run it.</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dosbox hello.exe
+</code></pre></div></div>
+
+<h2 id="using-dos-system-calls">Using DOS system calls</h2>
+
+<p>Open Watcom provides an implementation of the Standard C library; however, if you prefer to indulge in the quirkiness of DOS system calls, you can also do that, using Watcom’s funky <code class="highlighter-rouge">#pragma aux</code> syntax. The following program illustrates a call to the <em>INT 21h AH=09h</em> function (display string):</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">print</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">string</span><span class="p">);</span>
+<span class="cp">#pragma aux print = \
+        "mov ah, 09h"   \
+        "int 0x21"      \
+        parm    [dx]    \
+        modify  [ax];
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+    <span class="cm">/* string must be terminated with '$' */</span>
+    <span class="n">print</span><span class="p">(</span><span class="s">"hello, world</span><span class="se">\n</span><span class="s">$"</span><span class="p">);</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>For portability, though, it might be better to include <code class="highlighter-rouge">&lt;dos.h&gt;</code> and use the wrappers found there (such as <code class="highlighter-rouge">_dos_write</code>), which should still be a lighter abstraction than <code class="highlighter-rouge">&lt;stdio.h&gt;</code>.</p>
+
+<hr />
+
+<p>UPDATE: <a href="https://ptspts.blogspot.com/2020/04/openwatcom-exeprog.html">This post</a> contains many more useful examples and links related to OW2 on Linux.</p>
+
+  </div><div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://mcejp.github.io/2021/02/03/open-watcom.html';
+      this.page.identifier = 'https://mcejp.github.io/2021/02/03/open-watcom.html';
+    };
+
+    (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'https://blog-mcejp-com.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><a class="u-url" href="/2021/02/03/open-watcom.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Reinventing The Wheel</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Reinventing The Wheel</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/mcejp"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">mcejp</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
